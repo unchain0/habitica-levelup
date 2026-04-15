@@ -28,7 +28,7 @@ dev = [
 
 [tool.taskipy.tasks]
 test = "pytest tests/ -v"
-test-cov = "pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-fail-under=100 -v"
+test-cov = "pytest tests/ --cov=src --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=100 -v"
 lint = "ruff check ."
 format = "ruff format ."
 type-check = "mypy src/"
@@ -80,7 +80,11 @@ select = [
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
 ]
-ignore = ["E501"]  # Line too long (handled by formatter)
+ignore = [
+    "E501",   # Line too long (handled by formatter)
+    "SIM117", # Nested test/context managers are acceptable here
+    "UP047",  # Keep current generic syntax for Python 3.14 compatibility/readability
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -12,3 +12,6 @@ wheels/
 # Project
 .env
 .coverage
+coverage.xml
+bandit-report.json
+htmlcov/

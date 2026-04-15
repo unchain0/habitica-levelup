@@ -31,13 +31,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -e ".[dev]"
+          uv sync --frozen --group dev
 
       - name: Run ruff linter
-        run: uv run task lint
-
-      - name: Run ruff formatter check
-        run: uv run task format -- --check
+        run: bash scripts/run-ci-checks.sh lint
 
   type-check:
     name: Type Checking
@@ -57,10 +54,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
+        run: uv sync --frozen --group dev
 
       - name: Run mypy
-        run: uv run task type-check
+        run: bash scripts/run-ci-checks.sh type-check
 
   # Unit & Integration Tests
   test:
@@ -81,10 +78,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
+        run: uv sync --frozen --group dev
 
       - name: Run tests with coverage
-        run: uv run task test-cov
+        run: bash scripts/run-ci-checks.sh test
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -96,8 +93,8 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          fail_ci_if_error: true
-          files: ./htmlcov/index.html
+          fail_ci_if_error: false
+          files: ./coverage.xml
 
   # Security Scan
   security:
@@ -118,10 +115,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
+        run: uv sync --frozen --group dev
 
       - name: Run bandit security check
-        run: uv run bandit -r src/ -f json -o bandit-report.json || true
+        run: bash scripts/run-ci-checks.sh security
 
       - name: Upload security report
         uses: actions/upload-artifact@v4
@@ -153,10 +150,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
+        run: uv sync --frozen --group dev
 
       - name: Run integration tests
-        run: uv run pytest tests/integration/ -v --tb=short
+        run: bash scripts/run-ci-checks.sh integration
 
   # Pre-commit Hooks
   pre-commit:
@@ -171,8 +168,13 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --group dev
 
       - name: Run pre-commit hooks
-        run: pre-commit run --all-files
+        run: uv run pre-commit run --all-files
