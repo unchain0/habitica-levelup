@@ -142,6 +142,49 @@ class TestLevelUpService:
         mock_gateway.accept_pending_party_quest.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_ignores_already_started_error(self, service):
+        mock_gateway = MagicMock()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="The quest has already started, but you can always catch the next one!",
+        )
+        mock_gateway.accept_pending_party_quest = AsyncMock(
+            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+        )
+
+        await service.accept_pending_party_quest(
+            mock_gateway,
+            UserStatus(
+                level=1,
+                party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+            ),
+        )
+
+        mock_gateway.accept_pending_party_quest.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_reraises_other_auth_errors(self, service):
+        mock_gateway = MagicMock()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="Credential mismatch",
+        )
+        mock_gateway.accept_pending_party_quest = AsyncMock(
+            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+        )
+
+        with pytest.raises(NotAuthorizedError):
+            await service.accept_pending_party_quest(
+                mock_gateway,
+                UserStatus(
+                    level=1,
+                    party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+                ),
+            )
+
+    @pytest.mark.asyncio
     async def test_buy_armoire_if_wealthy(self, service):
         mock_gateway = MagicMock()
         mock_gateway.buy_armoire = AsyncMock(return_value=None)

@@ -24,6 +24,7 @@ class LevelUpService:
     RATE_LIMIT_DELAY = 0.5
     PROGRESS_INTERVAL = 10
     ARMOIRE_GOLD_THRESHOLD = 10000.0
+    QUEST_ALREADY_STARTED_MESSAGE = "quest has already started"
 
     def __init__(self) -> None:
         self.circuit_breaker = CircuitBreaker()
@@ -51,7 +52,14 @@ class LevelUpService:
         if not should_accept_party_quest(status):
             return
 
-        await gateway.accept_pending_party_quest()
+        try:
+            await gateway.accept_pending_party_quest()
+        except NotAuthorizedError as error:
+            if self.QUEST_ALREADY_STARTED_MESSAGE in str(error).lower():
+                logger.info("Party quest already started before acceptance")
+                return
+            raise
+
         logger.info(f"Accepted party quest: {status.party_quest.quest_key}")
 
     async def allocate_points(
