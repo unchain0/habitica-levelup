@@ -73,8 +73,8 @@ cp .env.example .env
 
 | Variable | Description | Source |
 |----------|-------------|--------|
-| `USER_ID` | Habitica User ID | https://habitica.com/user/settings/api |
-| `API_TOKEN` | Habitica API Token | https://habitica.com/user/settings/api |
+| `USER_ID` | Habitica User ID | <https://habitica.com/user/settings/api> |
+| `API_TOKEN` | Habitica API Token | <https://habitica.com/user/settings/api> |
 
 ### Optional Variables
 
@@ -106,6 +106,7 @@ python main.py
 ```
 
 Bot will:
+
 1. Validate configuration
 2. Create "Auto Farm XP" task (HARD difficulty) if missing
 3. Farm quests and allocate stats until level 999
@@ -126,6 +127,7 @@ Bot completes current iteration before stopping.
   - Compressed archives
 
 View logs:
+
 ```bash
 # Docker
 docker-compose logs -f
@@ -144,7 +146,7 @@ USER_ID
   Value cannot be a placeholder: your-user-id-here
 ```
 
-**Fix**: Replace placeholder values in `.env` with real credentials from https://habitica.com/user/settings/api
+**Fix**: Replace placeholder values in `.env` with real credentials from <https://habitica.com/user/settings/api>
 
 ### Rate Limiting
 
@@ -166,13 +168,6 @@ tail -f ~/.local/share/habitica-levelup/app.log
 grep ERROR ~/.local/share/habitica-levelup/app.log
 ```
 
-## Security
-
-- Credentials via environment variables only
-- `.env` never committed
-- API tokens validated at startup
-- No sensitive data in logs
-
 ## License
 
-[Your License Here]
+MIT
