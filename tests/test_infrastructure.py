@@ -6,7 +6,9 @@ from habiticalib import Habitica
 from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
+from yarl import URL
 
+from src.domain_models.party_quest_status import PartyQuestStatus
 from src.domain_models.settings import Settings
 from src.domain_models.user_status import UserStatus
 from src.integrations.habitica_gateway import HabiticaGateway
@@ -205,14 +207,29 @@ class TestHabiticaGateway:
     async def test_get_user_status_dresses_sdk_response(self):
         mock_client = MagicMock(spec=Habitica)
         mock_user = MagicMock()
+        mock_user.data.id = "user-123"
         mock_user.data.stats.lvl = 42
         mock_user.data.stats.points = 5
+        mock_user.data.stats.gp = 10050.5
+        mock_user.data.party.quest.key = "owl"
+        mock_user.data.party.quest.active = False
+        mock_user.data.party.quest.RSVPNeeded = True
+        mock_user.data.party.quest.members = {"user-123": False}
         mock_client.get_user = AsyncMock(return_value=mock_user)
 
         gateway = HabiticaGateway(mock_client)
         status = await gateway.get_user_status()
 
-        assert status == UserStatus(level=42, available_points=5)
+        assert status == UserStatus(
+            level=42,
+            available_points=5,
+            gold=10050.5,
+            party_quest=PartyQuestStatus(
+                quest_key="owl",
+                is_active=False,
+                requires_acceptance=True,
+            ),
+        )
 
     @pytest.mark.asyncio
     async def test_get_user_status_handles_missing_stats(self):
@@ -225,6 +242,75 @@ class TestHabiticaGateway:
         status = await gateway.get_user_status()
 
         assert status == UserStatus(level=None, available_points=0)
+
+    @pytest.mark.asyncio
+    async def test_get_user_status_marks_quest_not_pending_when_active(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_user = MagicMock()
+        mock_user.data.id = "user-123"
+        mock_user.data.stats.lvl = 10
+        mock_user.data.stats.points = 0
+        mock_user.data.stats.gp = 50
+        mock_user.data.party.quest.key = "owl"
+        mock_user.data.party.quest.active = True
+        mock_user.data.party.quest.RSVPNeeded = False
+        mock_user.data.party.quest.members = {"user-123": True}
+        mock_client.get_user = AsyncMock(return_value=mock_user)
+
+        gateway = HabiticaGateway(mock_client)
+        status = await gateway.get_user_status()
+
+        assert status.party_quest == PartyQuestStatus(
+            quest_key="owl",
+            is_active=True,
+            requires_acceptance=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_user_status_reads_string_member_keys(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_user = MagicMock()
+        mock_user.data.id = 123
+        mock_user.data.stats.lvl = 10
+        mock_user.data.stats.points = 0
+        mock_user.data.stats.gp = 50
+        mock_user.data.party.quest.key = "owl"
+        mock_user.data.party.quest.active = False
+        mock_user.data.party.quest.RSVPNeeded = False
+        mock_user.data.party.quest.members = {"123": True}
+        mock_client.get_user = AsyncMock(return_value=mock_user)
+
+        gateway = HabiticaGateway(mock_client)
+        status = await gateway.get_user_status()
+
+        assert status.party_quest == PartyQuestStatus(
+            quest_key="owl",
+            is_active=False,
+            requires_acceptance=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_user_status_handles_missing_user_id_with_pending_quest(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_user = MagicMock()
+        mock_user.data.id = None
+        mock_user.data.stats.lvl = 10
+        mock_user.data.stats.points = 0
+        mock_user.data.stats.gp = 50
+        mock_user.data.party.quest.key = "owl"
+        mock_user.data.party.quest.active = False
+        mock_user.data.party.quest.RSVPNeeded = False
+        mock_user.data.party.quest.members = {}
+        mock_client.get_user = AsyncMock(return_value=mock_user)
+
+        gateway = HabiticaGateway(mock_client)
+        status = await gateway.get_user_status()
+
+        assert status.party_quest == PartyQuestStatus(
+            quest_key="owl",
+            is_active=False,
+            requires_acceptance=True,
+        )
 
     @pytest.mark.asyncio
     async def test_score_task_up_calls_sdk(self):
@@ -245,3 +331,27 @@ class TestHabiticaGateway:
         await gateway.allocate_strength_point()
 
         mock_client.allocate_single_stat_point.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_calls_sdk(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_client.accept_quest = AsyncMock(return_value=None)
+
+        gateway = HabiticaGateway(mock_client)
+        await gateway.accept_pending_party_quest()
+
+        mock_client.accept_quest.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_buy_armoire_calls_sdk_request(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_client.url = URL("https://habitica.com")
+        mock_client._request = AsyncMock(return_value=None)
+
+        gateway = HabiticaGateway(mock_client)
+        await gateway.buy_armoire()
+
+        mock_client._request.assert_awaited_once_with(
+            "post",
+            url=URL("https://habitica.com/api/v3/user/buy-armoire"),
+        )
