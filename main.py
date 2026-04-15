@@ -6,8 +6,8 @@ import sys
 from dotenv import load_dotenv
 from loguru import logger
 
-from src.config import Settings
 from src.bot import LevelUpBot
+from src.config import Settings
 
 
 async def main() -> None:

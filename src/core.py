@@ -32,9 +32,7 @@ class CircuitBreaker:
         """Increment failure count and timestamp."""
         self.failure_count += 1
         self.last_failure = datetime.now()
-        logger.warning(
-            f"Circuit breaker: {self.failure_count}/{self.max_failures} failures"
-        )
+        logger.warning(f"Circuit breaker: {self.failure_count}/{self.max_failures} failures")
 
     def is_open(self) -> bool:
         """Check if circuit is open (blocking requests)."""

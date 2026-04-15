@@ -15,9 +15,7 @@ class TestGetOrCreateFarmTask:
         existing_task.text = TASK_TITLE
         existing_task.id = UUID("12345678-1234-1234-1234-123456789abc")
         existing_task.priority = 2.0
-        mock_client.get_tasks = AsyncMock(
-            return_value=MagicMock(data=[existing_task])
-        )
+        mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[existing_task]))
 
         task_id = await get_or_create_farm_task(mock_client)
 
@@ -31,9 +29,7 @@ class TestGetOrCreateFarmTask:
         other_task.text = "Other Task"
         other_task.id = UUID("00000000-0000-0000-0000-000000000000")
         other_task.priority = 1.0
-        mock_client.get_tasks = AsyncMock(
-            return_value=MagicMock(data=[other_task])
-        )
+        mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[other_task]))
 
         mock_response = MagicMock()
         mock_response.data.id = UUID("12345678-1234-1234-1234-123456789abc")

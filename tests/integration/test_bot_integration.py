@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,10 +41,14 @@ class TestBotInfrastructureIntegration:
             mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            mock_client = MagicMock()
+            MagicMock()
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="farm-task-id") as mock_get_task:
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="farm-task-id",
+                ) as mock_get_task:
                     bot.shutdown_event.set()
                     await bot.run()
 
@@ -77,7 +80,7 @@ class TestCircuitBreakerIntegration:
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_closes_after_timeout(self, bot):
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         bot.circuit_breaker.max_failures = 3
         bot.circuit_breaker.reset_timeout = timedelta(seconds=0)
@@ -108,7 +111,11 @@ class TestTaskCreationIntegration:
             mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="new-task-id") as mock_get_task:
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="new-task-id",
+                ) as mock_get_task:
                     bot.shutdown_event.set()
                     await bot.run()
 

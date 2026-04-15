@@ -115,7 +115,9 @@ class TestHabiticaAPIErrorContract:
     @pytest.mark.asyncio
     async def test_not_authorized_error_raised(self):
         mock_client = MagicMock()
-        error_response = HabiticaErrorResponse(success=False, error="Unauthorized", message="Not authorized")
+        error_response = HabiticaErrorResponse(
+            success=False, error="Unauthorized", message="Not authorized"
+        )
         error = NotAuthorizedError(error=error_response, headers=CIMultiDict())
         mock_client.get_tasks = AsyncMock(side_effect=error)
 
@@ -125,7 +127,9 @@ class TestHabiticaAPIErrorContract:
     @pytest.mark.asyncio
     async def test_too_many_requests_error_raised(self):
         mock_client = MagicMock()
-        error_response = HabiticaErrorResponse(success=False, error="Rate limited", message="Too many requests")
+        error_response = HabiticaErrorResponse(
+            success=False, error="Rate limited", message="Too many requests"
+        )
         error = TooManyRequestsError(error=error_response, headers=CIMultiDict())
         mock_client.get_tasks = AsyncMock(side_effect=error)
 

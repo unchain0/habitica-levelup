@@ -1,5 +1,4 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from aiohttp import ClientSession
@@ -19,7 +18,7 @@ class TestOptimizedClientSession:
     @pytest.mark.asyncio
     async def test_aexit_closes_session(self):
         session_manager = OptimizedClientSession()
-        async with session_manager as session:
+        async with session_manager:
             pass
 
     @pytest.mark.asyncio
@@ -73,6 +72,21 @@ class TestWithRetry:
     async def test_no_retry_on_not_authorized(self):
         error_response = HabiticaErrorResponse(
             success=False, error="Unauthorized", message="Not authorized"
+        )
+        error = NotAuthorizedError(error=error_response, headers=CIMultiDict())
+
+        async def failing_coro():
+            raise error
+
+        with pytest.raises(NotAuthorizedError):
+            await with_retry(failing_coro)
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_not_authorized_stat_points(self):
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="Not enough stat points to allocate",
         )
         error = NotAuthorizedError(error=error_response, headers=CIMultiDict())
 
@@ -165,7 +179,6 @@ class TestWithRetryEdgeCases:
 
     @pytest.mark.asyncio
     async def test_with_retry_reaches_end(self):
-        from src.infrastructure import RetryConfig
 
         error_response = HabiticaErrorResponse(
             success=False, error="Rate limited", message="Too many requests"

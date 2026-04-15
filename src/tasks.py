@@ -4,7 +4,6 @@ from habiticalib import Habitica, Task, TaskPriority, TaskType
 from habiticalib.typedefs import TaskData
 from loguru import logger
 
-
 TASK_TITLE = "Auto Farm XP"
 TASK_DESCRIPTION = (
     "Tarefa automatica para farmar XP e ouro de forma eficiente. "
@@ -32,12 +31,12 @@ async def get_or_create_farm_task(client: Habitica) -> str:
 
     for task in tasks:
         if task.text == TASK_TITLE:
-            task_id = task.id
+            existing_task_id = task.id
             task_priority = task.priority
             logger.info(
-                f"Tarefa existente encontrada: {task_id} (prioridade: {task_priority})"
+                f"Tarefa existente encontrada: {existing_task_id} (prioridade: {task_priority})"
             )
-            return str(task_id)
+            return str(existing_task_id)
 
     logger.info("Criando nova tarefa de farm com dificuldade HARD...")
 
@@ -51,7 +50,8 @@ async def get_or_create_farm_task(client: Habitica) -> str:
     }
 
     created = await client.create_task(new_task)
-    task_id = str(created.data.id)
+    created_task_id = created.data.id
+    task_id = str(created_task_id)
     logger.success(f"Tarefa criada com sucesso: {task_id}")
     logger.info(f"  - Titulo: {TASK_TITLE}")
     logger.info("  - Dificuldade: HARD (2.0x XP/Gold)")
