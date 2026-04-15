@@ -57,14 +57,78 @@ habitica-levelup/
 
 ### Requirements
 
-- Python >=3.12
-- uv (recommended) or pip
+- Python >=3.12 (for local development)
+- Docker and Docker Compose (for containerized deployment)
+- uv (recommended) or pip (for local development)
 
-### Setup
+### Docker Deployment (Recommended)
+
+The easiest way to run the bot is using Docker Compose. This ensures all dependencies are correctly installed and isolated.
+
+#### Quick Start with Docker
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/unchain0/habitica-levelup.git
+cd habitica-levelup
+```
+
+2. Create your environment file:
+```bash
+cp .env.example .env
+```
+
+3. Edit `.env` with your Habitica API credentials (see [Environment Variables](#environment-variables) section below).
+
+4. Start the bot with Docker Compose:
+```bash
+docker-compose up -d
+```
+
+5. View the logs:
+```bash
+docker-compose logs -f
+```
+
+To stop the bot:
+```bash
+docker-compose down
+```
+
+#### Docker Compose Services
+
+The `docker-compose.yml` provides two services:
+
+- **`app`** (production): Optimized runtime image with health checks and auto-restart
+- **`app-dev`** (development): Includes all dev tools and hot-reload capability
+
+Run development version:
+```bash
+docker-compose --profile dev up -d app-dev
+```
+
+#### Manual Docker Build
+
+If you prefer to build and run manually:
+
+```bash
+# Build the production image
+docker build --target runtime -t habitica-levelup .
+
+# Run with your .env file
+docker run -d --env-file .env --name habitica-levelup habitica-levelup
+
+# View logs
+docker logs -f habitica-levelup
+```
+
+### Local Development Setup
+
+For local development without Docker:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/unchain0/habitica-levelup.git
 cd habitica-levelup
 ```
 
@@ -81,7 +145,7 @@ uv pip install -e .
 
 4. Install dev dependencies (for testing):
 ```bash
-uv pip install -e ".[dev]"
+uv pip install --group dev
 ```
 
 5. Install pre-commit hooks:
@@ -91,19 +155,47 @@ task install-hooks
 
 ## Configuration
 
-1. Copy the environment template:
+### Environment Variables
+
+All configuration is done through environment variables. Create a `.env` file in the project root:
+
 ```bash
 cp .env.example .env
 ```
 
-2. Edit `.env` with your Habitica credentials:
-```bash
-# Get these from: https://habitica.com/user/settings/api
-USER_ID=your-user-id-here
-API_TOKEN=your-api-token-here
+#### Required Variables
 
-# Optional: Set logging level (DEBUG, INFO, WARNING, ERROR)
+| Variable | Description | How to Obtain |
+|----------|-------------|---------------|
+| `USER_ID` | Your Habitica User ID | https://habitica.com/user/settings/api |
+| `API_TOKEN` | Your Habitica API Token | https://habitica.com/user/settings/api |
+
+**⚠️ Security Warning:** Never commit your `.env` file or share your API credentials. The `.env` file is already in `.gitignore`.
+
+#### Optional Variables
+
+| Variable | Description | Default | Options |
+|----------|-------------|---------|---------|
+| `LOG_LEVEL` | Logging verbosity | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+#### Example .env file
+
+```bash
+# Required - Get these from https://habitica.com/user/settings/api
+USER_ID=a1b2c3d4-e5f6-7890-abcd-ef1234567890
+API_TOKEN=abcd1234-ef56-7890-abcd-ef1234567890
+
+# Optional
 LOG_LEVEL=INFO
+```
+
+### Docker Environment Configuration
+
+When running with Docker Compose, the `.env` file is automatically loaded. Ensure your `.env` file is in the same directory as `docker-compose.yml`.
+
+For Docker deployments, logs are persisted in a Docker volume (`app_logs`) and can be accessed via:
+```bash
+docker-compose logs -f
 ```
 
 Note: The bot automatically creates a farm task - no need to manually provide FARM_QUEST_ID anymore!
