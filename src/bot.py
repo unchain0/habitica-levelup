@@ -46,6 +46,17 @@ class LevelUpBot:
         logger.debug("Farm task scored")
 
     async def allocate_points(self, client: Habitica, stat: Attributes) -> None:
+        # Check available stat points before attempting allocation
+        user = await with_retry(lambda: client.get_user())
+        if user is None or user.data is None or user.data.stats is None:
+            logger.warning("Could not fetch user stats, skipping stat allocation")
+            return
+
+        available_points = getattr(user.data.stats, "points", 0) or 0
+        if available_points <= 0:
+            logger.debug("No stat points available to allocate")
+            return
+
         await with_retry(lambda: client.allocate_single_stat_point(stat))
         logger.debug(f"Allocated point to {stat}")
 

@@ -86,9 +86,24 @@ class TestLevelUpBot:
     @pytest.mark.asyncio
     async def test_allocate_points(self, bot):
         mock_client = MagicMock()
+        mock_user = MagicMock()
+        mock_user.data.stats.points = 5
 
         with patch("src.bot.with_retry") as mock_retry:
+            mock_retry.side_effect = [mock_user, None]
             await bot.allocate_points(mock_client, Attributes.STR)
+            assert mock_retry.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_allocate_points_no_points_available(self, bot):
+        mock_client = MagicMock()
+        mock_user = MagicMock()
+        mock_user.data.stats.points = 0
+
+        with patch("src.bot.with_retry") as mock_retry:
+            mock_retry.return_value = mock_user
+            await bot.allocate_points(mock_client, Attributes.STR)
+            # Should only call with_retry once (to get user stats), not for allocation
             mock_retry.assert_called_once()
 
     @pytest.mark.asyncio

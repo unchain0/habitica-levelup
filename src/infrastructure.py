@@ -76,7 +76,12 @@ async def with_retry(
                     f"retrying in {delay:.1f}s..."
                 )
                 await asyncio.sleep(delay)
-        except NotAuthorizedError:
+        except NotAuthorizedError as e:
+            error_msg = str(e).lower()
+            if "stat points" in error_msg:
+                # Not enough stat points - not a credential error, just skip allocation
+                logger.debug("No stat points available to allocate")
+                raise
             logger.error("Authorization failed - check API credentials")
             raise
 
