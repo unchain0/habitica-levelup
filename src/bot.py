@@ -1,6 +1,5 @@
 import asyncio
 import signal
-from collections.abc import Callable, Coroutine
 from typing import TypeVar
 
 from habiticalib import Attributes, Direction, Habitica
@@ -81,7 +80,7 @@ class LevelUpBot:
                 )
             self.circuit_breaker.record_success()
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Iteration timed out")
             self.circuit_breaker.record_failure()
             return False

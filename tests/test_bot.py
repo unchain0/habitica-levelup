@@ -1,5 +1,4 @@
 import asyncio
-import signal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -107,6 +106,19 @@ class TestLevelUpBot:
             mock_retry.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_allocate_points_skips_when_stats_missing(self, bot):
+        mock_client = MagicMock()
+        mock_user = MagicMock()
+        mock_user.data = None
+
+        with patch(
+            "src.bot.with_retry", new_callable=AsyncMock, return_value=mock_user
+        ) as mock_retry:
+            await bot.allocate_points(mock_client, Attributes.STR)
+
+        mock_retry.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_run_iteration_success(self, bot):
         mock_client = MagicMock()
         bot.circuit_breaker.is_open = MagicMock(return_value=False)
@@ -135,7 +147,7 @@ class TestLevelUpBot:
         bot.circuit_breaker.is_open = MagicMock(return_value=False)
         bot.circuit_breaker.record_failure = MagicMock()
 
-        with patch.object(bot, "farm_quest", side_effect=asyncio.TimeoutError()):
+        with patch.object(bot, "farm_quest", side_effect=TimeoutError()):
             success = await bot.run_iteration(mock_client, Attributes.STR)
 
         assert success is False
@@ -296,7 +308,6 @@ class TestLevelUpBotRunComplete:
             async def mock_run_iteration(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
-                bot._current_level = call_count
                 if call_count >= 2:
                     bot.shutdown_event.set()
                 return True
@@ -349,7 +360,6 @@ class TestLevelUpBotRunComplete:
             async def mock_run_iteration(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
-                bot._current_level = call_count
                 if call_count >= 11:
                     bot.shutdown_event.set()
                 return True
