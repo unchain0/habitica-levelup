@@ -1,533 +1,178 @@
 # Habitica Level Up Bot
 
-A high-performance CLI tool for auto-leveling Habitica characters with optimized async patterns, fault tolerance, comprehensive logging, automatic task creation, CI/CD pipeline, and 100% test coverage.
+CLI tool for auto-leveling Habitica characters. Farms XP automatically until level 999.
 
 ## Features
 
-- **Automatic Task Creation**: Creates a "Auto Farm XP" habit automatically if it doesn't exist
-- **Maximum Rewards**: Task created with HARD difficulty (2.0x XP/Gold multiplier)
-- **Concurrent API Calls**: ~2x faster with parallel quest farming and stat allocation
-- **Rate Limiting**: Built-in delays and exponential backoff to avoid API bans
-- **Circuit Breaker**: Prevents hammering the API when experiencing issues
-- **Graceful Shutdown**: Handles SIGINT/SIGTERM signals properly
-- **Environment Validation**: pydantic-settings for type-safe configuration
-- **Comprehensive Logging**: Console output + rotating file logs
-- **Retry Logic**: Exponential backoff for transient failures
-- **100% Test Coverage**: Full test suite with pytest including unit, integration, and contract tests
-- **CI/CD Pipeline**: GitHub Actions with automated testing, linting, and security checks
-- **Pre-commit Hooks**: Automated code quality checks before commits
+- **Automatic Task Creation**: Creates "Auto Farm XP" habit automatically
+- **Maximum Rewards**: HARD difficulty (2.0x XP/Gold multiplier)
+- **Concurrent API Calls**: Parallel quest farming and stat allocation
+- **Rate Limiting**: Built-in delays to avoid API bans
+- **Fault Tolerance**: Exponential backoff retry logic
+- **Graceful Shutdown**: Handles SIGINT/SIGTERM properly
+- **Comprehensive Logging**: Console + file logs with rotation
 
-## Project Structure
-
-```
-habitica-levelup/
-├── src/                          # Source code
-│   ├── __init__.py               # Package exports
-│   ├── config.py                 # Environment configuration
-│   ├── core.py                   # Circuit breaker pattern
-│   ├── infrastructure.py         # HTTP client and retry logic
-│   ├── logging_config.py         # Logging setup
-│   ├── bot.py                    # Main application logic
-│   └── tasks.py                  # Automatic task management
-├── tests/                        # Test suite (100% coverage)
-│   ├── __init__.py
-│   ├── contracts/                # Contract tests (API contracts)
-│   │   ├── __init__.py
-│   │   └── test_habitica_api_contracts.py
-│   ├── integration/              # Integration tests
-│   │   ├── __init__.py
-│   │   └── test_bot_integration.py
-│   ├── test_config.py            # Unit tests
-│   ├── test_core.py
-│   ├── test_infrastructure.py
-│   ├── test_logging_config.py
-│   ├── test_tasks.py
-│   ├── test_bot.py
-│   └── test_main.py
-├── .github/workflows/            # CI/CD pipelines
-│   └── ci.yml
-├── .pre-commit-config.yaml       # Pre-commit hooks
-├── main.py                       # Entry point
-├── .env.example                  # Environment template
-├── pyproject.toml                # Dependencies and taskipy scripts
-└── README.md                     # This file
-```
-
-## Installation
+## Quick Start
 
 ### Requirements
 
-- Python >=3.12 (for local development)
-- Docker and Docker Compose (for containerized deployment)
-- uv (recommended) or pip (for local development)
+- Docker and Docker Compose (recommended)
+- Or Python >=3.12
 
-### Docker Deployment (Recommended)
+### Docker (Recommended)
 
-The easiest way to run the bot is using Docker Compose. This ensures all dependencies are correctly installed and isolated.
-
-#### Quick Start with Docker
-
-1. Clone the repository:
 ```bash
+# Clone repo
 git clone https://github.com/unchain0/habitica-levelup.git
 cd habitica-levelup
-```
 
-2. Create your environment file:
-```bash
+# Setup environment
 cp .env.example .env
-```
+# Edit .env with your Habitica credentials
 
-3. Edit `.env` with your Habitica API credentials (see [Environment Variables](#environment-variables) section below).
-
-4. Start the bot with Docker Compose:
-```bash
+# Start bot
 docker-compose up -d
-```
 
-5. View the logs:
-```bash
+# View logs
 docker-compose logs -f
 ```
 
-To stop the bot:
-```bash
-docker-compose down
-```
+To stop: `docker-compose down`
 
-#### Docker Compose Services
-
-The `docker-compose.yml` provides two services:
-
-- **`app`** (production): Optimized runtime image with health checks and auto-restart
-- **`app-dev`** (development): Includes all dev tools and hot-reload capability
-
-Run development version:
-```bash
-docker-compose --profile dev up -d app-dev
-```
-
-#### Manual Docker Build
-
-If you prefer to build and run manually:
+### Python
 
 ```bash
-# Build the production image
-docker build --target runtime -t habitica-levelup .
-
-# Run with your .env file
-docker run -d --env-file .env --name habitica-levelup habitica-levelup
-
-# View logs
-docker logs -f habitica-levelup
-```
-
-### Local Development Setup
-
-For local development without Docker:
-
-1. Clone the repository:
-```bash
+# Clone and setup
 git clone https://github.com/unchain0/habitica-levelup.git
 cd habitica-levelup
-```
 
-2. Create and activate virtual environment:
-```bash
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-3. Install dependencies:
-```bash
-uv pip install -e .
-```
+# Install
+pip install -e .
 
-4. Install dev dependencies (for testing):
-```bash
-uv pip install --group dev
-```
+# Configure
+cp .env.example .env
+# Edit .env with your Habitica credentials
 
-5. Install pre-commit hooks:
-```bash
-task install-hooks
+# Run
+python main.py
 ```
 
 ## Configuration
 
-### Environment Variables
-
-All configuration is done through environment variables. Create a `.env` file in the project root:
+Create `.env` file from template:
 
 ```bash
 cp .env.example .env
 ```
 
-#### Required Variables
+### Required Variables
 
-| Variable | Description | How to Obtain |
-|----------|-------------|---------------|
-| `USER_ID` | Your Habitica User ID | https://habitica.com/user/settings/api |
-| `API_TOKEN` | Your Habitica API Token | https://habitica.com/user/settings/api |
+| Variable | Description | Source |
+|----------|-------------|--------|
+| `USER_ID` | Habitica User ID | https://habitica.com/user/settings/api |
+| `API_TOKEN` | Habitica API Token | https://habitica.com/user/settings/api |
 
-**⚠️ Security Warning:** Never commit your `.env` file or share your API credentials. The `.env` file is already in `.gitignore`.
+### Optional Variables
 
-#### Optional Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LOG_LEVEL` | Logging verbosity | `INFO` |
 
-| Variable | Description | Default | Options |
-|----------|-------------|---------|---------|
-| `LOG_LEVEL` | Logging verbosity | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-
-#### Example .env file
+### Example .env
 
 ```bash
-# Required - Get these from https://habitica.com/user/settings/api
 USER_ID=a1b2c3d4-e5f6-7890-abcd-ef1234567890
 API_TOKEN=abcd1234-ef56-7890-abcd-ef1234567890
-
-# Optional
 LOG_LEVEL=INFO
 ```
 
-### Docker Environment Configuration
-
-When running with Docker Compose, the `.env` file is automatically loaded. Ensure your `.env` file is in the same directory as `docker-compose.yml`.
-
-For Docker deployments, logs are persisted in a Docker volume (`app_logs`) and can be accessed via:
-```bash
-docker-compose logs -f
-```
-
-Note: The bot automatically creates a farm task - no need to manually provide FARM_QUEST_ID anymore!
+**Security**: Never commit `.env`. It's already in `.gitignore`.
 
 ## Usage
 
-### Running the Bot
+### Running
 
-Using taskipy (recommended):
 ```bash
-task run
-```
+# Docker
+docker-compose up -d
+docker-compose logs -f
 
-Or directly:
-```bash
+# Python
 python main.py
 ```
 
-The bot will:
-1. Validate your configuration
-2. Search for existing "Auto Farm XP" task or create one with HARD difficulty
-3. Check current level
-4. Farm quests and allocate stat points until level 999
-5. Log progress every 10 levels
+Bot will:
+1. Validate configuration
+2. Create "Auto Farm XP" task (HARD difficulty) if missing
+3. Farm quests and allocate stats until level 999
+4. Log progress every 10 levels
 
-### Graceful Shutdown
+### Stop Bot
 
-Press `Ctrl+C` to stop the bot gracefully. It will:
-- Complete the current iteration
-- Log the final level reached
-- Clean up resources
+Press `Ctrl+C` (Python) or run `docker-compose down` (Docker).
 
-## Development
-
-### Taskipy Commands
-
-Available shortcuts (defined in pyproject.toml):
-
-```bash
-# Run tests
-task test
-
-# Run tests with coverage (requires 100%)
-task test-cov
-
-# Run linter
-task lint
-
-# Format code
-task format
-
-# Type checking
-task type-check
-
-# Run the bot
-task run
-
-# Install pre-commit hooks
-task install-hooks
-
-# Run pre-commit hooks manually
-task pre-commit
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-task test
-
-# Run with coverage report (requires 100% coverage)
-task test-cov
-
-# Run specific test file
-pytest tests/test_config.py -v
-
-# Run only unit tests
-pytest tests/test_*.py -v
-
-# Run only integration tests
-pytest tests/integration/ -v
-
-# Run only contract tests
-pytest tests/contracts/ -v
-```
-
-### Code Quality
-
-The project uses:
-- **ruff**: Linting and formatting
-- **mypy**: Type checking
-- **bandit**: Security linting
-- **pytest**: Testing framework
-- **pytest-asyncio**: Async test support
-- **pytest-cov**: Coverage reporting
-- **pydantic**: Type-safe configuration
-- **loguru**: Structured logging
-
-## Architecture
-
-### Layered Design
-
-The project follows a layered architecture:
-
-- **Configuration Layer** (`config.py`): Environment variable validation using pydantic-settings
-- **Core Layer** (`core.py`): Domain utilities like circuit breaker pattern
-- **Infrastructure Layer** (`infrastructure.py`): HTTP client, retry logic, session management
-- **Task Management Layer** (`tasks.py`): Automatic task creation and management
-- **Application Layer** (`bot.py`): Main business logic
-
-### Key Optimizations
-
-1. **Automatic Task Creation**: Creates "Auto Farm XP" habit with HARD difficulty automatically
-2. **Async Concurrency**: Uses `asyncio.gather()` to run quest farming and stat allocation in parallel
-3. **Connection Pooling**: Optimized aiohttp ClientSession with connection limits and keepalive
-4. **Exponential Backoff**: Retries failed requests with 1s, 2s, 4s delays
-5. **Circuit Breaker**: Stops requests after 5 consecutive failures, waits 1 minute before retrying
-6. **Signal Handling**: Proper SIGINT/SIGTERM handling for graceful shutdown
+Bot completes current iteration before stopping.
 
 ## Logging
 
-Logs are written to:
-- **Console**: Colored output for development
+- **Console**: Colored output
 - **File**: `~/.local/share/habitica-levelup/app.log`
   - Rotates at 10 MB
-  - Keeps 7 days of history
-  - Compressed old logs
+  7 days retention
+  - Compressed archives
 
-## Error Handling
-
-The bot handles various error scenarios:
-
-- **Rate Limiting**: Exponential backoff on 429 responses
-- **Authentication Errors**: Stops immediately on 401/403
-- **Network Timeouts**: Retries with backoff
-- **API Failures**: Circuit breaker prevents hammering
-
-## Testing
-
-The project maintains **100% test coverage** using pytest and pytest-asyncio.
-
-### Test Types
-
-1. **Unit Tests**: Test individual components in isolation
-   - `test_config.py`, `test_core.py`, `test_infrastructure.py`, etc.
-
-2. **Integration Tests**: Test component interactions
-   - `tests/integration/test_bot_integration.py`
-
-3. **Contract Tests**: Verify API contracts with Habitica
-   - `tests/contracts/test_habitica_api_contracts.py`
-
-### Test Structure
-
-```
-tests/
-├── test_config.py              # Settings validation tests
-├── test_core.py                # Circuit breaker tests
-├── test_infrastructure.py      # HTTP client and retry tests
-├── test_logging_config.py      # Logging setup tests
-├── test_tasks.py               # Task creation/management tests
-├── test_bot.py                 # Main bot logic tests
-├── test_main.py                # Entry point tests
-├── integration/                # Integration tests
-│   └── test_bot_integration.py
-└── contracts/                  # Contract tests
-    └── test_habitica_api_contracts.py
-```
-
-### Running Coverage
-
+View logs:
 ```bash
-# Generate coverage report with 100% requirement
-task test-cov
+# Docker
+docker-compose logs -f
 
-# View HTML report
-open htmlcov/index.html
-
-# View terminal report with missing lines
-pytest tests/ --cov=src --cov-report=term-missing
+# File
+tail -f ~/.local/share/habitica-levelup/app.log
 ```
-
-## CI/CD Pipeline
-
-The project uses GitHub Actions for continuous integration and deployment:
-
-### CI Workflow (`.github/workflows/ci.yml`)
-
-Runs on every push and pull request:
-
-1. **Lint & Format**: Runs ruff linter and formatter
-2. **Type Checking**: Runs mypy type checker
-3. **Tests**: Runs full test suite with 100% coverage requirement
-4. **Security**: Runs bandit security audit
-5. **Integration Tests**: Runs integration test suite
-6. **Pre-commit Hooks**: Runs all pre-commit hooks
-
-### Pipeline Jobs
-
-| Job | Description |
-|-----|-------------|
-| `lint` | Code linting and formatting checks |
-| `type-check` | Static type checking with mypy |
-| `test` | Unit tests with coverage reporting |
-| `security` | Security vulnerability scanning |
-| `integration-test` | Integration tests |
-| `pre-commit` | Pre-commit hooks validation |
-
-### Status Checks
-
-All jobs must pass before merging:
-- 100% test coverage required
-- No linting errors
-- No type checking errors
-- No security vulnerabilities
-- All integration tests passing
-
-## Pre-commit Hooks
-
-Pre-commit hooks are configured to run automatically before each commit:
-
-- **ruff-lint**: Lints Python code
-- **ruff-format**: Formats Python code
-- **mypy**: Type checks Python code
-- **pytest-cov**: Runs tests with coverage (requires 100%)
-
-To run hooks manually:
-```bash
-task pre-commit
-```
-
-To skip hooks (not recommended):
-```bash
-git commit --no-verify
-```
-
-## Security
-
-- Credentials are loaded from environment variables
-- `.env` file should never be committed (already in `.gitignore`)
-- API tokens are validated at startup
-- No sensitive data in logs
-- Bandit security scanning in CI/CD pipeline
-
-## License
-
-[Your License Here]
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Ensure tests pass with 100% coverage: `task test-cov`
-5. Run linter: `task lint`
-6. Run type checker: `task type-check`
-7. Run security scan: `bandit -r src/`
-8. Submit a pull request
-
-All PRs must pass CI checks before merging.
 
 ## Troubleshooting
 
-### Configuration Errors
+### Configuration Error
 
-If you see:
 ```
 Configuration error: 1 validation error for Settings
 USER_ID
   Value cannot be a placeholder: your-user-id-here
 ```
 
-Make sure you've updated `.env` with your actual credentials, not the placeholder values.
+**Fix**: Replace placeholder values in `.env` with real credentials from https://habitica.com/user/settings/api
 
 ### Rate Limiting
 
-If the bot is rate limited, it will automatically retry with exponential backoff. This is normal behavior.
+Bot retries automatically with exponential backoff. This is normal behavior.
 
-### Task Creation
+### Task Creation Failed
 
-If the bot cannot create the farm task:
-- Check your API credentials
-- Ensure you have permission to create tasks
-- Check the logs for specific error messages
+- Check API credentials
+- Verify account permissions
+- Check logs: `docker-compose logs -f` or `tail -f ~/.local/share/habitica-levelup/app.log`
 
 ### Logs Location
 
-If you need to check logs:
 ```bash
-# View latest logs
+# View latest
 tail -f ~/.local/share/habitica-levelup/app.log
 
-# Search for errors
+# Search errors
 grep ERROR ~/.local/share/habitica-levelup/app.log
 ```
 
-### Test Failures
+## Security
 
-If tests fail:
-```bash
-# Run with verbose output
-pytest tests/ -v --tb=short
+- Credentials via environment variables only
+- `.env` never committed
+- API tokens validated at startup
+- No sensitive data in logs
 
-# Run specific test
-pytest tests/test_config.py::test_settings -v
+## License
 
-# Run with coverage debugging
-pytest tests/ --cov=src --cov-report=term-missing -v
-```
-
-### CI/CD Failures
-
-If CI/CD pipeline fails:
-1. Check the GitHub Actions logs
-2. Run the failing job locally:
-   ```bash
-   task lint
-   task type-check
-   task test-cov
-   ```
-3. Fix the issues and push again
-
-### Pre-commit Hook Failures
-
-If pre-commit hooks fail:
-```bash
-# Run hooks manually to see errors
-task pre-commit
-
-# Fix auto-fixable issues
-task format
-
-# Run tests to check coverage
-task test-cov
-```
+[Your License Here]

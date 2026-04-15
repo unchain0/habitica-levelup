@@ -16,6 +16,10 @@ RUN uv pip install --system -e . && rm -rf /root/.cache
 
 FROM python:3.14-slim AS runtime
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -r -g 1000 appuser && \
     useradd -r -u 1000 -g appuser appuser
 
@@ -32,8 +36,8 @@ RUN mkdir -p /home/appuser/.local/share/habitica-levelup && \
 
 USER appuser
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import sys; sys.exit(0)" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD pgrep -f "python main.py" > /dev/null 2>&1 || exit 1
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
