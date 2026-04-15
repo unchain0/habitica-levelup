@@ -25,9 +25,5 @@ def should_continue_leveling(
     return current_level < max_level and not shutdown_requested
 
 
-def increment_level(current_level: int) -> int:
-    return current_level + 1
-
-
 def is_max_level(current_level: int, max_level: int) -> bool:
     return current_level >= max_level
