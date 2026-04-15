@@ -6,10 +6,13 @@ from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from loguru import logger
 
 from src.domain_models.resilience import CircuitBreaker
+from src.domain_models.user_status import UserStatus
 from src.engines.leveling import (
     extract_level,
     has_available_stat_points,
     is_max_level,
+    should_accept_party_quest,
+    should_buy_armoire,
     should_continue_leveling,
     should_log_progress,
 )
@@ -20,6 +23,7 @@ class LevelUpService:
     MAX_LEVEL = 999
     RATE_LIMIT_DELAY = 0.5
     PROGRESS_INTERVAL = 10
+    ARMOIRE_GOLD_THRESHOLD = 10000.0
 
     def __init__(self) -> None:
         self.circuit_breaker = CircuitBreaker()
@@ -38,8 +42,24 @@ class LevelUpService:
         await gateway.score_task_up(self._farm_task_id)
         logger.debug("Farm task scored")
 
-    async def allocate_points(self, gateway: HabiticaGateway) -> None:
-        user_status = await gateway.get_user_status()
+    async def accept_pending_party_quest(
+        self,
+        gateway: HabiticaGateway,
+        user_status: UserStatus | None = None,
+    ) -> None:
+        status = user_status or await gateway.get_user_status()
+        if not should_accept_party_quest(status):
+            return
+
+        await gateway.accept_pending_party_quest()
+        logger.info(f"Accepted party quest: {status.party_quest.quest_key}")
+
+    async def allocate_points(
+        self,
+        gateway: HabiticaGateway,
+        user_status: UserStatus | None = None,
+    ) -> None:
+        user_status = user_status or await gateway.get_user_status()
         if user_status.level is None:
             logger.warning("Could not fetch user stats, skipping stat allocation")
             return
@@ -58,6 +78,24 @@ class LevelUpService:
 
         logger.debug("Allocated point to strength")
 
+    async def buy_armoire_if_wealthy(
+        self,
+        gateway: HabiticaGateway,
+        user_status: UserStatus | None = None,
+    ) -> None:
+        status = user_status or await gateway.get_user_status()
+        if not should_buy_armoire(status, self.ARMOIRE_GOLD_THRESHOLD):
+            return
+
+        await gateway.buy_armoire()
+        logger.info("Bought Enchanted Armoire")
+
+    async def maintain_account(self, gateway: HabiticaGateway) -> None:
+        user_status = await gateway.get_user_status()
+        await self.accept_pending_party_quest(gateway, user_status)
+        await self.allocate_points(gateway, user_status)
+        await self.buy_armoire_if_wealthy(gateway, user_status)
+
     async def run_iteration(self, gateway: HabiticaGateway) -> bool:
         if self.circuit_breaker.is_open():
             logger.warning("Circuit breaker open, waiting...")
@@ -66,7 +104,7 @@ class LevelUpService:
 
         try:
             async with asyncio.timeout(30):
-                await asyncio.gather(self.farm_quest(gateway), self.allocate_points(gateway))
+                await asyncio.gather(self.farm_quest(gateway), self.maintain_account(gateway))
             self.circuit_breaker.record_success()
             return True
         except TimeoutError:
@@ -82,6 +120,7 @@ class LevelUpService:
     async def initialize(self, gateway: HabiticaGateway) -> None:
         self._current_level = await self.get_current_level(gateway)
         self._farm_task_id = await gateway.get_or_create_farm_task()
+        await self.accept_pending_party_quest(gateway)
 
     async def run(self, gateway: HabiticaGateway) -> None:
         try:

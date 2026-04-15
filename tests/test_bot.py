@@ -6,6 +6,7 @@ from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
 
+from src.domain_models.party_quest_status import PartyQuestStatus
 from src.domain_models.user_status import UserStatus
 from src.services.levelup_service import LevelUpService
 
@@ -118,17 +119,100 @@ class TestLevelUpService:
             await service.allocate_points(mock_gateway)
 
     @pytest.mark.asyncio
+    async def test_accept_pending_party_quest(self, service):
+        mock_gateway = MagicMock()
+        mock_gateway.accept_pending_party_quest = AsyncMock(return_value=None)
+
+        await service.accept_pending_party_quest(
+            mock_gateway,
+            UserStatus(
+                level=1,
+                party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+            ),
+        )
+
+        mock_gateway.accept_pending_party_quest.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_skips_when_not_needed(self, service):
+        mock_gateway = MagicMock()
+
+        await service.accept_pending_party_quest(mock_gateway, UserStatus(level=1))
+
+        mock_gateway.accept_pending_party_quest.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_buy_armoire_if_wealthy(self, service):
+        mock_gateway = MagicMock()
+        mock_gateway.buy_armoire = AsyncMock(return_value=None)
+
+        await service.buy_armoire_if_wealthy(mock_gateway, UserStatus(level=1, gold=10001.0))
+
+        mock_gateway.buy_armoire.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_buy_armoire_if_wealthy_skips_at_threshold(self, service):
+        mock_gateway = MagicMock()
+
+        await service.buy_armoire_if_wealthy(mock_gateway, UserStatus(level=1, gold=10000.0))
+
+        mock_gateway.buy_armoire.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_maintain_account_reuses_single_status_snapshot(self, service):
+        mock_gateway = MagicMock()
+        status = UserStatus(
+            level=1,
+            available_points=5,
+            gold=10001.0,
+            party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+        )
+        mock_gateway.get_user_status = AsyncMock(return_value=status)
+        mock_gateway.accept_pending_party_quest = AsyncMock(return_value=None)
+        mock_gateway.allocate_strength_point = AsyncMock(return_value=None)
+        mock_gateway.buy_armoire = AsyncMock(return_value=None)
+
+        await service.maintain_account(mock_gateway)
+
+        mock_gateway.get_user_status.assert_awaited_once()
+        mock_gateway.accept_pending_party_quest.assert_awaited_once()
+        mock_gateway.allocate_strength_point.assert_awaited_once()
+        mock_gateway.buy_armoire.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_initialize_sets_level_and_task_id(self, service):
         mock_gateway = MagicMock()
         mock_gateway.get_user_status = AsyncMock(
             return_value=UserStatus(level=7, available_points=0)
         )
         mock_gateway.get_or_create_farm_task = AsyncMock(return_value="task-xyz")
+        mock_gateway.accept_pending_party_quest = AsyncMock(return_value=None)
 
         await service.initialize(mock_gateway)
 
         assert service.current_level == 7
         assert service._farm_task_id == "task-xyz"
+        mock_gateway.accept_pending_party_quest.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_initialize_accepts_pending_party_quest(self, service):
+        mock_gateway = MagicMock()
+        mock_gateway.get_user_status = AsyncMock(
+            side_effect=[
+                UserStatus(level=7, available_points=0),
+                UserStatus(
+                    level=7,
+                    available_points=0,
+                    party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+                ),
+            ]
+        )
+        mock_gateway.get_or_create_farm_task = AsyncMock(return_value="task-xyz")
+        mock_gateway.accept_pending_party_quest = AsyncMock(return_value=None)
+
+        await service.initialize(mock_gateway)
+
+        mock_gateway.accept_pending_party_quest.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_run_iteration_success(self, service):
@@ -137,7 +221,7 @@ class TestLevelUpService:
         service.circuit_breaker.record_success = MagicMock()
 
         with patch.object(service, "farm_quest", new_callable=AsyncMock):
-            with patch.object(service, "allocate_points", new_callable=AsyncMock):
+            with patch.object(service, "maintain_account", new_callable=AsyncMock):
                 success = await service.run_iteration(mock_gateway)
 
         assert success is True
@@ -160,7 +244,21 @@ class TestLevelUpService:
         service.circuit_breaker.record_failure = MagicMock()
 
         with patch.object(service, "farm_quest", side_effect=TimeoutError()):
-            success = await service.run_iteration(mock_gateway)
+            with patch.object(service, "maintain_account", new_callable=AsyncMock):
+                success = await service.run_iteration(mock_gateway)
+
+        assert success is False
+        service.circuit_breaker.record_failure.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_timeout_from_maintain_account(self, service):
+        mock_gateway = MagicMock()
+        service.circuit_breaker.is_open = MagicMock(return_value=False)
+        service.circuit_breaker.record_failure = MagicMock()
+
+        with patch.object(service, "farm_quest", new_callable=AsyncMock):
+            with patch.object(service, "maintain_account", side_effect=TimeoutError()):
+                success = await service.run_iteration(mock_gateway)
 
         assert success is False
         service.circuit_breaker.record_failure.assert_called_once()
@@ -176,8 +274,27 @@ class TestLevelUpService:
         )
         error = TooManyRequestsError(error=error_response, headers=CIMultiDict())
         with patch.object(service, "farm_quest", side_effect=error):
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                success = await service.run_iteration(mock_gateway)
+            with patch.object(service, "maintain_account", new_callable=AsyncMock):
+                with patch("asyncio.sleep", new_callable=AsyncMock):
+                    success = await service.run_iteration(mock_gateway)
+
+        assert success is False
+        service.circuit_breaker.record_failure.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_rate_limited_from_maintain_account(self, service):
+        mock_gateway = MagicMock()
+        service.circuit_breaker.is_open = MagicMock(return_value=False)
+        service.circuit_breaker.record_failure = MagicMock()
+
+        error_response = HabiticaErrorResponse(
+            success=False, error="Rate limited", message="Too many requests"
+        )
+        error = TooManyRequestsError(error=error_response, headers=CIMultiDict())
+        with patch.object(service, "farm_quest", new_callable=AsyncMock):
+            with patch.object(service, "maintain_account", side_effect=error):
+                with patch("asyncio.sleep", new_callable=AsyncMock):
+                    success = await service.run_iteration(mock_gateway)
 
         assert success is False
         service.circuit_breaker.record_failure.assert_called_once()
