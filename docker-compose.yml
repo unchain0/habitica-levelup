@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    container_name: habitica-levelup
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - app_logs:/home/appuser/.local/share/habitica-levelup
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  app-dev:
+    build:
+      context: .
+      target: development
+    container_name: habitica-levelup-dev
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    volumes:
+      - .:/app
+      - dev_logs:/home/appuser/.local/share/habitica-levelup
+      - /app/.venv
+      - /app/src/__pycache__
+    command: python main.py
+    profiles:
+      - dev
+
+volumes:
+  app_logs:
+  dev_logs:
