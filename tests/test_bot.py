@@ -166,8 +166,14 @@ class TestLevelUpBotRun:
             mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=998):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="task-id"):
-                    with patch.object(bot, "run_iteration", new_callable=AsyncMock, return_value=True):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
+                    with patch.object(
+                        bot, "run_iteration", new_callable=AsyncMock, return_value=True
+                    ):
                         bot._current_level = 998
                         bot.MAX_LEVEL = 999
                         bot.shutdown_event.set()
@@ -181,7 +187,11 @@ class TestLevelUpBotRun:
             mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="task-id"):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
                     with patch.object(bot, "run_iteration", side_effect=asyncio.CancelledError()):
                         with pytest.raises(asyncio.CancelledError):
                             await bot.run()
@@ -240,7 +250,7 @@ class TestLevelUpBotSignalHandler:
         loop = asyncio.get_running_loop()
 
         for handler in [h for h in loop._signal_handlers.values() if h is not None]:
-            if hasattr(handler, '_callback'):
+            if hasattr(handler, "_callback"):
                 handler._callback()
 
 
@@ -277,7 +287,11 @@ class TestLevelUpBotRunComplete:
                 return True
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=0):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="task-id"):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
                     with patch.object(bot, "run_iteration", mock_run_iteration):
                         await bot.run()
 
@@ -293,9 +307,83 @@ class TestLevelUpBotRunComplete:
             bot.MAX_LEVEL = 3
 
             with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=0):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock, return_value="task-id"):
-                    with patch.object(bot, "run_iteration", new_callable=AsyncMock, return_value=True):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
+                    with patch.object(
+                        bot, "run_iteration", new_callable=AsyncMock, return_value=True
+                    ):
                         bot._current_level = 2
                         await bot.run()
 
             assert bot._current_level == 3
+
+    @pytest.mark.asyncio
+    async def test_run_logs_progress_at_interval(self, bot):
+        with patch("src.bot.OptimizedClientSession") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            bot.MAX_LEVEL = 20
+            bot.PROGRESS_INTERVAL = 10
+            call_count = 0
+
+            async def mock_run_iteration(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                bot._current_level = call_count
+                if call_count >= 11:
+                    bot.shutdown_event.set()
+                return True
+
+            with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=0):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
+                    with patch.object(bot, "run_iteration", mock_run_iteration):
+                        with patch("src.bot.logger") as mock_logger:
+                            await bot.run()
+
+            progress_calls = [
+                call for call in mock_logger.info.call_args_list if "Progress" in str(call)
+            ]
+            assert len(progress_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_run_sleeps_on_iteration_failure(self, bot):
+        with patch("src.bot.OptimizedClientSession") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            bot.MAX_LEVEL = 5
+            call_count = 0
+
+            async def mock_run_iteration(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count >= 2:
+                    bot.shutdown_event.set()
+                return False
+
+            with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
+                with patch(
+                    "src.bot.get_or_create_farm_task",
+                    new_callable=AsyncMock,
+                    return_value="task-id",
+                ):
+                    with patch.object(bot, "run_iteration", mock_run_iteration):
+                        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                            await bot.run()
+
+            short_sleep_calls = [
+                call
+                for call in mock_sleep.call_args_list
+                if call.args == (0.5,) or (len(call.args) > 0 and call.args[0] == 0.5)
+            ]
+            assert len(short_sleep_calls) >= 1
