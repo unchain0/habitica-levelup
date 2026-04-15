@@ -248,10 +248,14 @@ class TestLevelUpServiceRun:
                 service.shutdown_event.set()
             return True
 
+        async def refresh_level(*args, **kwargs):
+            return call_count
+
         with patch.object(service, "initialize", new_callable=AsyncMock) as mock_initialize:
             mock_initialize.side_effect = seed_initialize
             with patch.object(service, "run_iteration", mock_run_iteration):
-                await service.run(mock_gateway)
+                with patch.object(service, "get_current_level", side_effect=refresh_level):
+                    await service.run(mock_gateway)
 
         assert service.current_level >= 1
 
@@ -266,7 +270,10 @@ class TestLevelUpServiceRun:
         with patch.object(service, "initialize", new_callable=AsyncMock) as mock_initialize:
             mock_initialize.side_effect = seed_initialize
             with patch.object(service, "run_iteration", new_callable=AsyncMock, return_value=True):
-                await service.run(mock_gateway)
+                with patch.object(
+                    service, "get_current_level", new_callable=AsyncMock, return_value=3
+                ):
+                    await service.run(mock_gateway)
 
         assert service.current_level == 3
 
@@ -287,11 +294,15 @@ class TestLevelUpServiceRun:
                 service.shutdown_event.set()
             return True
 
+        async def refresh_level(*args, **kwargs):
+            return call_count
+
         with patch.object(service, "initialize", new_callable=AsyncMock) as mock_initialize:
             mock_initialize.side_effect = seed_initialize
             with patch.object(service, "run_iteration", mock_run_iteration):
                 with patch("src.services.levelup_service.logger") as mock_logger:
-                    await service.run(mock_gateway)
+                    with patch.object(service, "get_current_level", side_effect=refresh_level):
+                        await service.run(mock_gateway)
 
         progress_calls = [
             call for call in mock_logger.info.call_args_list if "Progress" in str(call)
@@ -326,6 +337,28 @@ class TestLevelUpServiceRun:
             if call.args == (0.5,) or (len(call.args) > 0 and call.args[0] == 0.5)
         ]
         assert len(short_sleep_calls) >= 1
+
+    @pytest.mark.asyncio
+    async def test_run_refreshes_level_from_api_after_success(self, service):
+        mock_gateway = MagicMock()
+        service.MAX_LEVEL = 10
+
+        async def seed_initialize(_gateway):
+            await self._seed_level(service, 1)
+
+        async def stop_after_success(*args, **kwargs):
+            service.shutdown_event.set()
+            return True
+
+        with patch.object(service, "initialize", new_callable=AsyncMock) as mock_initialize:
+            mock_initialize.side_effect = seed_initialize
+            with patch.object(service, "run_iteration", side_effect=stop_after_success):
+                with patch.object(
+                    service, "get_current_level", new_callable=AsyncMock, return_value=4
+                ):
+                    await service.run(mock_gateway)
+
+        assert service.current_level == 4
 
     async def _seed_level(self, service: LevelUpService, level: int) -> None:
         service._current_level = level

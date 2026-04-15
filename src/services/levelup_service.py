@@ -9,7 +9,6 @@ from src.domain_models.resilience import CircuitBreaker
 from src.engines.leveling import (
     extract_level,
     has_available_stat_points,
-    increment_level,
     is_max_level,
     should_continue_leveling,
     should_log_progress,
@@ -107,7 +106,7 @@ class LevelUpService:
                 success = await self.run_iteration(gateway)
 
                 if success:
-                    self._current_level = increment_level(self._current_level)
+                    self._current_level = await self.get_current_level(gateway)
                     if should_log_progress(self._current_level, self.PROGRESS_INTERVAL):
                         logger.info(f"Progress: Level {self._current_level}/{self.MAX_LEVEL}")
                     await asyncio.sleep(self.RATE_LIMIT_DELAY)

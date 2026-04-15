@@ -4,7 +4,6 @@ from src.domain_models.user_status import UserStatus
 from src.engines.leveling import (
     extract_level,
     has_available_stat_points,
-    increment_level,
     is_max_level,
     should_continue_leveling,
     should_log_progress,
@@ -34,10 +33,6 @@ def test_should_continue_leveling():
     assert should_continue_leveling(1, 10, False) is True
     assert should_continue_leveling(10, 10, False) is False
     assert should_continue_leveling(1, 10, True) is False
-
-
-def test_increment_level():
-    assert increment_level(3) == 4
 
 
 def test_is_max_level():
