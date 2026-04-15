@@ -25,5 +25,13 @@ def should_continue_leveling(
     return current_level < max_level and not shutdown_requested
 
 
+def should_buy_armoire(user_status: UserStatus, gold_threshold: float) -> bool:
+    return user_status.gold > gold_threshold
+
+
+def should_accept_party_quest(user_status: UserStatus) -> bool:
+    return user_status.party_quest.requires_acceptance
+
+
 def is_max_level(current_level: int, max_level: int) -> bool:
     return current_level >= max_level

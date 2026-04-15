@@ -1,10 +1,13 @@
 import pytest
 
+from src.domain_models.party_quest_status import PartyQuestStatus
 from src.domain_models.user_status import UserStatus
 from src.engines.leveling import (
     extract_level,
     has_available_stat_points,
     is_max_level,
+    should_accept_party_quest,
+    should_buy_armoire,
     should_continue_leveling,
     should_log_progress,
 )
@@ -33,6 +36,24 @@ def test_should_continue_leveling():
     assert should_continue_leveling(1, 10, False) is True
     assert should_continue_leveling(10, 10, False) is False
     assert should_continue_leveling(1, 10, True) is False
+
+
+def test_should_buy_armoire():
+    assert should_buy_armoire(UserStatus(level=1, gold=10000.01), 10000.0) is True
+    assert should_buy_armoire(UserStatus(level=1, gold=10000.0), 10000.0) is False
+
+
+def test_should_accept_party_quest():
+    assert (
+        should_accept_party_quest(
+            UserStatus(
+                level=1,
+                party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+            )
+        )
+        is True
+    )
+    assert should_accept_party_quest(UserStatus(level=1)) is False
 
 
 def test_is_max_level():
