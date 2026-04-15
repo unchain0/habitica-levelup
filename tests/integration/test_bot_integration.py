@@ -21,8 +21,12 @@ class TestBotInfrastructureIntegration:
     @pytest.fixture
     def bot(self, settings):
         service = MagicMock()
-        service.run = AsyncMock(return_value=None)
-        service.shutdown_event = AsyncMock()
+        service.shutdown_event = asyncio.Event()
+
+        async def run_once(_gateway):
+            service.shutdown_event.set()
+
+        service.run = AsyncMock(side_effect=run_once)
         return LevelUpBot(settings, service=service)
 
     @pytest.mark.asyncio
@@ -49,6 +53,49 @@ class TestBotInfrastructureIntegration:
         await bot.run()
 
         bot.service.run.assert_awaited_once_with(gateway)
+
+    @pytest.mark.asyncio
+    async def test_bot_retries_after_unexpected_service_return(self, settings):
+        service = MagicMock()
+        service.shutdown_event = asyncio.Event()
+
+        async def first_then_stop(_gateway):
+            if service.run.await_count >= 2:
+                service.shutdown_event.set()
+
+        service.run = AsyncMock(side_effect=first_then_stop)
+        bot = LevelUpBot(settings, service=service)
+
+        gateway = MagicMock()
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=gateway)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await bot.run()
+
+        assert service.run.await_count == 2
+        mock_sleep.assert_awaited_once_with(bot.RESTART_DELAY)
+
+    @pytest.mark.asyncio
+    async def test_bot_does_not_run_when_shutdown_already_requested(self, settings):
+        service = MagicMock()
+        service.shutdown_event = asyncio.Event()
+        service.shutdown_event.set()
+        service.run = AsyncMock(return_value=None)
+        bot = LevelUpBot(settings, service=service)
+
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=MagicMock())
+
+        await bot.run()
+
+        service.run.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_setup_signal_handlers_windows(self, bot):
@@ -123,8 +170,12 @@ class TestTaskCreationIntegration:
     @pytest.mark.asyncio
     async def test_task_created_before_farming(self, settings):
         service = MagicMock()
-        service.run = AsyncMock(return_value=None)
-        service.shutdown_event = AsyncMock()
+        service.shutdown_event = asyncio.Event()
+
+        async def run_once(_gateway):
+            service.shutdown_event.set()
+
+        service.run = AsyncMock(side_effect=run_once)
         bot = LevelUpBot(settings, service=service)
 
         gateway = MagicMock()

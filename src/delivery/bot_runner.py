@@ -18,6 +18,8 @@ from src.services.levelup_service import LevelUpService
 class LevelUpBot:
     """Thin delivery wrapper around level-up service."""
 
+    RESTART_DELAY = 30.0
+
     def __init__(
         self,
         settings: Settings,
@@ -56,4 +58,13 @@ class LevelUpBot:
 
         async with self._session_factory() as session:
             gateway = self._gateway_factory(session, self.settings)
-            await self.service.run(gateway)
+            while not self.service.shutdown_event.is_set():
+                await self.service.run(gateway)
+
+                if self.service.shutdown_event.is_set():
+                    break
+
+                logger.warning(
+                    f"Service run ended unexpectedly, retrying in {self.RESTART_DELAY:.0f}s"
+                )
+                await asyncio.sleep(self.RESTART_DELAY)
