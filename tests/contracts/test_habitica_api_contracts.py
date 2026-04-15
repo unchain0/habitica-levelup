@@ -7,7 +7,8 @@ from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
 
-from src.tasks import TASK_TITLE, get_or_create_farm_task
+from src.domain_models.farm_task import FARM_TASK_TITLE
+from src.integrations.habitica_gateway import HabiticaGateway
 
 
 class TestHabiticaAPICreateTaskContract:
@@ -19,7 +20,7 @@ class TestHabiticaAPICreateTaskContract:
         mock_client.create_task = AsyncMock(return_value=mock_response)
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[]))
 
-        await get_or_create_farm_task(mock_client)
+        await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         call_args = mock_client.create_task.call_args[0][0]
         assert "type" in call_args
@@ -38,7 +39,7 @@ class TestHabiticaAPICreateTaskContract:
         mock_client.create_task = AsyncMock(return_value=mock_response)
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[]))
 
-        result_id = await get_or_create_farm_task(mock_client)
+        result_id = await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         assert result_id == str(task_id)
 
@@ -50,7 +51,7 @@ class TestHabiticaAPICreateTaskContract:
         mock_client.create_task = AsyncMock(return_value=mock_response)
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[]))
 
-        await get_or_create_farm_task(mock_client)
+        await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         call_args = mock_client.create_task.call_args[0][0]
         assert call_args["type"] == TaskType.HABIT
@@ -63,7 +64,7 @@ class TestHabiticaAPICreateTaskContract:
         mock_client.create_task = AsyncMock(return_value=mock_response)
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[]))
 
-        await get_or_create_farm_task(mock_client)
+        await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         call_args = mock_client.create_task.call_args[0][0]
         assert call_args["priority"] == TaskPriority.HARD
@@ -74,12 +75,12 @@ class TestHabiticaAPIGetTasksContract:
     async def test_get_tasks_returns_list(self):
         mock_client = MagicMock()
         mock_task = MagicMock()
-        mock_task.text = TASK_TITLE
+        mock_task.text = FARM_TASK_TITLE
         mock_task.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_task.priority = 2.0
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[mock_task]))
 
-        result = await get_or_create_farm_task(mock_client)
+        result = await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         assert result == "12345678-1234-1234-1234-123456789abc"
 
@@ -92,7 +93,7 @@ class TestHabiticaAPIGetTasksContract:
         mock_response.data.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_client.create_task = AsyncMock(return_value=mock_response)
 
-        result = await get_or_create_farm_task(mock_client)
+        result = await HabiticaGateway(mock_client).get_or_create_farm_task()
 
         assert result is not None
         mock_client.create_task.assert_called_once()
@@ -101,14 +102,14 @@ class TestHabiticaAPIGetTasksContract:
     async def test_task_has_text_attribute(self):
         mock_client = MagicMock()
         mock_task = MagicMock()
-        mock_task.text = TASK_TITLE
+        mock_task.text = FARM_TASK_TITLE
         mock_task.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_task.priority = 1.0
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[mock_task]))
 
-        await get_or_create_farm_task(mock_client)
+        await HabiticaGateway(mock_client).get_or_create_farm_task()
 
-        assert mock_task.text == TASK_TITLE
+        assert mock_task.text == FARM_TASK_TITLE
 
 
 class TestHabiticaAPIErrorContract:
@@ -122,7 +123,7 @@ class TestHabiticaAPIErrorContract:
         mock_client.get_tasks = AsyncMock(side_effect=error)
 
         with pytest.raises(NotAuthorizedError):
-            await get_or_create_farm_task(mock_client)
+            await HabiticaGateway(mock_client).get_or_create_farm_task()
 
     @pytest.mark.asyncio
     async def test_too_many_requests_error_raised(self):
@@ -134,4 +135,4 @@ class TestHabiticaAPIErrorContract:
         mock_client.get_tasks = AsyncMock(side_effect=error)
 
         with pytest.raises(TooManyRequestsError):
-            await get_or_create_farm_task(mock_client)
+            await HabiticaGateway(mock_client).get_or_create_farm_task()

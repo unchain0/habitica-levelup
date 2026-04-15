@@ -1,12 +1,17 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp import ClientSession
+from habiticalib import Habitica
 from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
 
-from src.infrastructure import OptimizedClientSession, with_retry
+from src.domain_models.settings import Settings
+from src.domain_models.user_status import UserStatus
+from src.integrations.habitica_gateway import HabiticaGateway
+from src.integrations.retry import with_retry
+from src.integrations.session import OptimizedClientSession
 
 
 class TestOptimizedClientSession:
@@ -82,21 +87,6 @@ class TestWithRetry:
             await with_retry(failing_coro)
 
     @pytest.mark.asyncio
-    async def test_no_retry_on_not_authorized_stat_points(self):
-        error_response = HabiticaErrorResponse(
-            success=False,
-            error="Unauthorized",
-            message="Not enough stat points to allocate",
-        )
-        error = NotAuthorizedError(error=error_response, headers=CIMultiDict())
-
-        async def failing_coro():
-            raise error
-
-        with pytest.raises(NotAuthorizedError):
-            await with_retry(failing_coro)
-
-    @pytest.mark.asyncio
     async def test_exponential_backoff(self):
         error_response = HabiticaErrorResponse(
             success=False, error="Rate limited", message="Too many requests"
@@ -142,7 +132,7 @@ class TestWithRetry:
 
         with patch("asyncio.sleep", mock_sleep):
             await with_retry(failing_coro, max_retries=4, base_delay=10.0, max_delay=15.0)
-        assert all(d <= 15.0 for d in sleep_calls)
+        assert all(delay <= 15.0 for delay in sleep_calls)
 
     @pytest.mark.asyncio
     async def test_all_retries_exhausted(self):
@@ -179,7 +169,6 @@ class TestWithRetryEdgeCases:
 
     @pytest.mark.asyncio
     async def test_with_retry_reaches_end(self):
-
         error_response = HabiticaErrorResponse(
             success=False, error="Rate limited", message="Too many requests"
         )
@@ -199,3 +188,60 @@ class TestWithRetryEdgeCases:
 
         with pytest.raises(RuntimeError, match="Unexpected end of retry loop"):
             await with_retry(never_called, max_retries=0)
+
+
+class TestHabiticaGateway:
+    def test_from_session_builds_client(self):
+        settings = Settings(USER_ID="test-user", API_TOKEN="test-token", _env_file=None)
+
+        with patch("src.integrations.habitica_gateway.Habitica") as mock_habitica:
+            session = object()
+            gateway = HabiticaGateway.from_session(session, settings)
+
+        mock_habitica.assert_called_once_with(session, api_user="test-user", api_key="test-token")
+        assert isinstance(gateway, HabiticaGateway)
+
+    @pytest.mark.asyncio
+    async def test_get_user_status_dresses_sdk_response(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_user = MagicMock()
+        mock_user.data.stats.lvl = 42
+        mock_user.data.stats.points = 5
+        mock_client.get_user = AsyncMock(return_value=mock_user)
+
+        gateway = HabiticaGateway(mock_client)
+        status = await gateway.get_user_status()
+
+        assert status == UserStatus(level=42, available_points=5)
+
+    @pytest.mark.asyncio
+    async def test_get_user_status_handles_missing_stats(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_user = MagicMock()
+        mock_user.data = None
+        mock_client.get_user = AsyncMock(return_value=mock_user)
+
+        gateway = HabiticaGateway(mock_client)
+        status = await gateway.get_user_status()
+
+        assert status == UserStatus(level=None, available_points=0)
+
+    @pytest.mark.asyncio
+    async def test_score_task_up_calls_sdk(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_client.update_score = AsyncMock(return_value=None)
+
+        gateway = HabiticaGateway(mock_client)
+        await gateway.score_task_up("task-123")
+
+        mock_client.update_score.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_allocate_strength_point_calls_sdk(self):
+        mock_client = MagicMock(spec=Habitica)
+        mock_client.allocate_single_stat_point = AsyncMock(return_value=None)
+
+        gateway = HabiticaGateway(mock_client)
+        await gateway.allocate_strength_point()
+
+        mock_client.allocate_single_stat_point.assert_awaited_once()

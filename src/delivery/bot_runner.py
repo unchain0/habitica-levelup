@@ -1,0 +1,59 @@
+"""CLI-facing bot runner."""
+
+import asyncio
+import signal
+from collections.abc import Callable
+from typing import Any
+
+from aiohttp import ClientSession
+from loguru import logger
+
+from src.delivery.logging import setup_logging
+from src.domain_models.settings import Settings
+from src.integrations.habitica_gateway import HabiticaGateway
+from src.integrations.session import OptimizedClientSession
+from src.services.levelup_service import LevelUpService
+
+
+class LevelUpBot:
+    """Thin delivery wrapper around level-up service."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        service: LevelUpService | None = None,
+        session_factory: Callable[[], Any] = OptimizedClientSession,
+        gateway_factory: Callable[[ClientSession, Settings], HabiticaGateway] = (
+            HabiticaGateway.from_session
+        ),
+    ) -> None:
+        self.settings = settings
+        self.service = service or LevelUpService()
+        self._session_factory = session_factory
+        self._gateway_factory = gateway_factory
+
+    def setup_signal_handlers(self) -> None:
+        loop = asyncio.get_running_loop()
+
+        def signal_handler() -> None:
+            logger.info("Shutdown signal received, stopping...")
+            self.service.shutdown_event.set()
+
+        try:
+            loop.add_signal_handler(signal.SIGINT, signal_handler)
+            loop.add_signal_handler(signal.SIGTERM, signal_handler)
+        except NotImplementedError:
+            pass
+
+    async def run(self) -> None:
+        setup_logging(self.settings.LOG_LEVEL)
+
+        logger.info("=" * 50)
+        logger.info("Habitica Level Up Bot Starting")
+        logger.info("=" * 50)
+
+        self.setup_signal_handlers()
+
+        async with self._session_factory() as session:
+            gateway = self._gateway_factory(session, self.settings)
+            await self.service.run(gateway)

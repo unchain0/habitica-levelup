@@ -8,8 +8,8 @@ from main import main
 class TestMain:
     @pytest.mark.asyncio
     async def test_main_success(self):
-        with patch("main.load_dotenv"), patch("main.Settings"):
-            with patch("main.LevelUpBot") as mock_bot_class:
+        with patch("src.delivery.cli.load_dotenv"), patch("src.delivery.cli.Settings"):
+            with patch("src.delivery.cli.LevelUpBot") as mock_bot_class:
                 mock_bot = MagicMock()
                 mock_bot.run = AsyncMock()
                 mock_bot_class.return_value = mock_bot
@@ -20,9 +20,9 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_main_config_error(self):
-        with patch("main.load_dotenv"):
-            with patch("main.Settings", side_effect=Exception("Config error")):
-                with patch("main.logger") as mock_logger:
+        with patch("src.delivery.cli.load_dotenv"):
+            with patch("src.delivery.cli.Settings", side_effect=Exception("Config error")):
+                with patch("src.delivery.cli.logger") as mock_logger:
                     with pytest.raises(SystemExit) as exc_info:
                         await main()
 
@@ -31,13 +31,13 @@ class TestMain:
 
     @pytest.mark.asyncio
     async def test_main_runtime_error(self):
-        with patch("main.load_dotenv"), patch("main.Settings"):
-            with patch("main.LevelUpBot") as mock_bot_class:
+        with patch("src.delivery.cli.load_dotenv"), patch("src.delivery.cli.Settings"):
+            with patch("src.delivery.cli.LevelUpBot") as mock_bot_class:
                 mock_bot = MagicMock()
                 mock_bot.run = AsyncMock(side_effect=Exception("Runtime error"))
                 mock_bot_class.return_value = mock_bot
 
-                with patch("main.logger"):
+                with patch("src.delivery.cli.logger"):
                     with pytest.raises(SystemExit) as exc_info:
                         await main()
 

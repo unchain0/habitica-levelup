@@ -3,7 +3,7 @@ import os
 import pytest
 from pydantic import ValidationError
 
-from src.config import Settings
+from src.domain_models.settings import Settings
 
 
 @pytest.fixture(autouse=True)

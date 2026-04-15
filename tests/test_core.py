@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from src.core import CircuitBreaker, RetryConfig
+from src.domain_models.resilience import CircuitBreaker, RetryConfig
 
 
 class TestCircuitBreaker:
@@ -54,7 +54,7 @@ class TestCircuitBreaker:
 
         assert cb.is_open() is True
 
-        with patch("src.core.datetime") as mock_datetime:
+        with patch("src.domain_models.resilience.datetime") as mock_datetime:
             mock_datetime.now.return_value = datetime.now() + timedelta(seconds=2)
 
             assert cb.is_open() is False

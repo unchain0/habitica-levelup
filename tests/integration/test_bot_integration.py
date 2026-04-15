@@ -1,9 +1,11 @@
+import asyncio
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.bot import LevelUpBot
-from src.config import Settings
+from src.delivery.bot_runner import LevelUpBot
+from src.domain_models.settings import Settings
 
 
 class TestBotInfrastructureIntegration:
@@ -18,41 +20,60 @@ class TestBotInfrastructureIntegration:
 
     @pytest.fixture
     def bot(self, settings):
-        return LevelUpBot(settings)
+        service = MagicMock()
+        service.run = AsyncMock(return_value=None)
+        service.shutdown_event = AsyncMock()
+        return LevelUpBot(settings, service=service)
 
     @pytest.mark.asyncio
     async def test_bot_uses_optimized_session(self, bot):
-        with patch("src.bot.OptimizedClientSession") as mock_session_class:
-            mock_session = AsyncMock()
-            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=MagicMock())
 
-            with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch("src.bot.get_or_create_farm_task", new_callable=AsyncMock):
-                    bot.shutdown_event.set()
-                    await bot.run()
+        await bot.run()
 
-            mock_session_class.assert_called_once()
+        bot._session_factory.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_end_to_end_flow(self, bot):
-        with patch("src.bot.OptimizedClientSession") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
+        gateway = MagicMock()
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=gateway)
 
-            MagicMock()
+        await bot.run()
 
-            with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch(
-                    "src.bot.get_or_create_farm_task",
-                    new_callable=AsyncMock,
-                    return_value="farm-task-id",
-                ) as mock_get_task:
-                    bot.shutdown_event.set()
-                    await bot.run()
+        bot.service.run.assert_awaited_once_with(gateway)
 
-                    mock_get_task.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_setup_signal_handlers_windows(self, bot):
+        loop = asyncio.get_running_loop()
+
+        with patch.object(loop, "add_signal_handler", side_effect=NotImplementedError()):
+            bot.setup_signal_handlers()
+
+    @pytest.mark.asyncio
+    async def test_signal_handler_sets_shutdown_event(self, settings):
+        service = MagicMock()
+        service.run = AsyncMock(return_value=None)
+        service.shutdown_event = asyncio.Event()
+        bot = LevelUpBot(settings, service=service)
+
+        bot.setup_signal_handlers()
+        assert service.shutdown_event.is_set() is False
+
+        loop = asyncio.get_running_loop()
+        for handler in [registered for registered in loop._signal_handlers.values() if registered]:
+            if hasattr(handler, "_callback"):
+                handler._callback()
+                break
+
+        assert service.shutdown_event.is_set() is True
 
 
 class TestCircuitBreakerIntegration:
@@ -71,24 +92,22 @@ class TestCircuitBreakerIntegration:
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_opens_after_failures(self, bot):
-        bot.circuit_breaker.max_failures = 3
+        bot.service.circuit_breaker.max_failures = 3
 
         for _ in range(3):
-            bot.circuit_breaker.record_failure()
+            bot.service.circuit_breaker.record_failure()
 
-        assert bot.circuit_breaker.is_open() is True
+        assert bot.service.circuit_breaker.is_open() is True
 
     @pytest.mark.asyncio
     async def test_circuit_breaker_closes_after_timeout(self, bot):
-        from datetime import timedelta
-
-        bot.circuit_breaker.max_failures = 3
-        bot.circuit_breaker.reset_timeout = timedelta(seconds=0)
+        bot.service.circuit_breaker.max_failures = 3
+        bot.service.circuit_breaker.reset_timeout = timedelta(seconds=0)
 
         for _ in range(3):
-            bot.circuit_breaker.record_failure()
+            bot.service.circuit_breaker.record_failure()
 
-        assert bot.circuit_breaker.is_open() is False
+        assert bot.service.circuit_breaker.is_open() is False
 
 
 class TestTaskCreationIntegration:
@@ -103,20 +122,19 @@ class TestTaskCreationIntegration:
 
     @pytest.mark.asyncio
     async def test_task_created_before_farming(self, settings):
-        bot = LevelUpBot(settings)
+        service = MagicMock()
+        service.run = AsyncMock(return_value=None)
+        service.shutdown_event = AsyncMock()
+        bot = LevelUpBot(settings, service=service)
 
-        with patch("src.bot.OptimizedClientSession") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
+        gateway = MagicMock()
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=gateway)
 
-            with patch.object(bot, "get_current_level", new_callable=AsyncMock, return_value=1):
-                with patch(
-                    "src.bot.get_or_create_farm_task",
-                    new_callable=AsyncMock,
-                    return_value="new-task-id",
-                ) as mock_get_task:
-                    bot.shutdown_event.set()
-                    await bot.run()
+        with patch("src.delivery.bot_runner.setup_logging"):
+            await bot.run()
 
-                    mock_get_task.assert_called_once()
+        service.run.assert_awaited_once_with(gateway)

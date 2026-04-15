@@ -4,20 +4,22 @@ from uuid import UUID
 import pytest
 from habiticalib import TaskPriority, TaskType
 
-from src.tasks import TASK_TITLE, get_or_create_farm_task
+from src.domain_models.farm_task import FARM_TASK_TITLE
+from src.integrations.habitica_gateway import HabiticaGateway
 
 
-class TestGetOrCreateFarmTask:
+class TestHabiticaGatewayFarmTask:
     @pytest.mark.asyncio
     async def test_returns_existing_task(self):
         mock_client = MagicMock()
         existing_task = MagicMock()
-        existing_task.text = TASK_TITLE
+        existing_task.text = FARM_TASK_TITLE
         existing_task.id = UUID("12345678-1234-1234-1234-123456789abc")
         existing_task.priority = 2.0
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[existing_task]))
 
-        task_id = await get_or_create_farm_task(mock_client)
+        gateway = HabiticaGateway(mock_client)
+        task_id = await gateway.get_or_create_farm_task()
 
         assert task_id == "12345678-1234-1234-1234-123456789abc"
         mock_client.create_task.assert_not_called()
@@ -35,7 +37,8 @@ class TestGetOrCreateFarmTask:
         mock_response.data.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_client.create_task = AsyncMock(return_value=mock_response)
 
-        task_id = await get_or_create_farm_task(mock_client)
+        gateway = HabiticaGateway(mock_client)
+        task_id = await gateway.get_or_create_farm_task()
 
         assert task_id == "12345678-1234-1234-1234-123456789abc"
         mock_client.create_task.assert_called_once()
@@ -49,11 +52,12 @@ class TestGetOrCreateFarmTask:
         mock_response.data.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_client.create_task = AsyncMock(return_value=mock_response)
 
-        await get_or_create_farm_task(mock_client)
+        gateway = HabiticaGateway(mock_client)
+        await gateway.get_or_create_farm_task()
 
         call_args = mock_client.create_task.call_args[0][0]
         assert call_args["type"] == TaskType.HABIT
-        assert call_args["text"] == TASK_TITLE
+        assert call_args["text"] == FARM_TASK_TITLE
         assert call_args["priority"] == TaskPriority.HARD
         assert call_args["up"] is True
         assert call_args["down"] is False
@@ -67,7 +71,8 @@ class TestGetOrCreateFarmTask:
         mock_response.data.id = UUID("12345678-1234-1234-1234-123456789abc")
         mock_client.create_task = AsyncMock(return_value=mock_response)
 
-        task_id = await get_or_create_farm_task(mock_client)
+        gateway = HabiticaGateway(mock_client)
+        task_id = await gateway.get_or_create_farm_task()
 
         assert task_id is not None
         mock_client.create_task.assert_called_once()
@@ -81,7 +86,7 @@ class TestGetOrCreateFarmTask:
         task1.priority = 1.0
 
         task2 = MagicMock()
-        task2.text = TASK_TITLE
+        task2.text = FARM_TASK_TITLE
         task2.id = UUID("12345678-1234-1234-1234-123456789abc")
         task2.priority = 2.0
 
@@ -92,6 +97,7 @@ class TestGetOrCreateFarmTask:
 
         mock_client.get_tasks = AsyncMock(return_value=MagicMock(data=[task1, task2, task3]))
 
-        task_id = await get_or_create_farm_task(mock_client)
+        gateway = HabiticaGateway(mock_client)
+        task_id = await gateway.get_or_create_farm_task()
 
         assert task_id == "12345678-1234-1234-1234-123456789abc"
