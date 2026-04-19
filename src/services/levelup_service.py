@@ -10,7 +10,6 @@ from habiticalib.exceptions import (
 )
 from loguru import logger
 
-from src.domain_models.resilience import CircuitBreaker
 from src.domain_models.user_status import UserStatus
 from src.engines.leveling import (
     extract_level,
@@ -22,6 +21,7 @@ from src.engines.leveling import (
     should_log_progress,
 )
 from src.integrations.habitica_gateway import HabiticaGateway
+from src.services.resilience import CircuitBreaker
 
 
 class LevelUpService:
