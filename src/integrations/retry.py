@@ -12,6 +12,18 @@ from src.integrations.retry_policy import RetryConfig
 T = TypeVar("T")
 
 
+def _get_retry_delay(error: TooManyRequestsError, attempt: int) -> float:
+    """Extract retry delay from Retry-After header or use exponential backoff."""
+    retry_after = getattr(error, "retry_after", None)
+    if retry_after is not None:
+        return float(retry_after)
+
+    return min(
+        RetryConfig.BASE_DELAY * (RetryConfig.EXPONENTIAL_BASE**attempt),
+        RetryConfig.MAX_DELAY,
+    )
+
+
 async def with_retry(
     coro_factory: Callable[[], Coroutine[None, None, T]],
     max_retries: int = RetryConfig.MAX_RETRIES,
@@ -26,7 +38,7 @@ async def with_retry(
         except TooManyRequestsError as error:
             last_exception = error
             if attempt < max_retries - 1:
-                delay = min(base_delay * (RetryConfig.EXPONENTIAL_BASE**attempt), max_delay)
+                delay = _get_retry_delay(error, attempt)
                 logger.warning(
                     f"Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {delay:.1f}s..."
                 )

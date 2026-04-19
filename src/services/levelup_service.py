@@ -26,7 +26,7 @@ from src.services.resilience import CircuitBreaker
 
 class LevelUpService:
     MAX_LEVEL = 999
-    RATE_LIMIT_DELAY = 0.5
+    RATE_LIMIT_DELAY = 30.0  # Habitica requires 30s delay between API calls
     PROGRESS_INTERVAL = 10
     ARMOIRE_GOLD_THRESHOLD = 10000.0
     QUEST_ALREADY_ACTIVE_MESSAGES = (

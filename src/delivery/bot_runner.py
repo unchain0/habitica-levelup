@@ -24,14 +24,14 @@ class LevelUpBot:
         self,
         settings: Settings,
         service: LevelUpService | None = None,
-        session_factory: Callable[[], Any] = OptimizedClientSession,
+        session_factory: Callable[[str], Any] | None = None,
         gateway_factory: Callable[[ClientSession, str, str], HabiticaGateway] = (
             HabiticaGateway.from_session
         ),
     ) -> None:
         self.settings = settings
         self.service = service or LevelUpService()
-        self._session_factory = session_factory
+        self._session_factory = session_factory or (lambda uid: OptimizedClientSession(user_id=uid))
         self._gateway_factory = gateway_factory
 
     def setup_signal_handlers(self) -> None:
@@ -56,7 +56,7 @@ class LevelUpBot:
 
         self.setup_signal_handlers()
 
-        async with self._session_factory() as session:
+        async with self._session_factory(self.settings.USER_ID) as session:
             gateway = self._gateway_factory(
                 session,
                 self.settings.USER_ID,
