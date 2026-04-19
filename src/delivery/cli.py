@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from src.delivery.bot_runner import LevelUpBot
-from src.domain_models.settings import Settings
+from src.delivery.settings import Settings
 
 
 async def main() -> None:

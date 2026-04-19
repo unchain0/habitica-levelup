@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.delivery.bot_runner import LevelUpBot
-from src.domain_models.settings import Settings
+from src.delivery.settings import Settings
 
 
 class TestBotInfrastructureIntegration:
