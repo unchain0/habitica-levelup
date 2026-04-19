@@ -4,6 +4,27 @@ set -euo pipefail
 
 target="${1:-all}"
 
+run_auto_fix() {
+  uv run ruff check --fix .
+  uv run ruff format .
+}
+
+capture_python_worktree_state() {
+  git status --short -- src tests
+}
+
+fail_if_auto_fix_changed_worktree() {
+  local before_state="$1"
+  local after_state
+  after_state="$(capture_python_worktree_state)"
+
+  if [[ "$before_state" != "$after_state" ]]; then
+    printf '\nLocal hook auto-fixed files. Review, commit, then push again.\n' >&2
+    GIT_PAGER=cat git diff --stat -- src tests >&2
+    exit 1
+  fi
+}
+
 run_lint() {
   uv run task lint
   uv run task format -- --check
@@ -42,6 +63,16 @@ case "$target" in
     run_security
     ;;
   integration)
+    run_integration
+    ;;
+  pre-push)
+    before_state="$(capture_python_worktree_state)"
+    run_auto_fix
+    fail_if_auto_fix_changed_worktree "$before_state"
+    run_lint
+    run_type_check
+    run_tests
+    run_security
     run_integration
     ;;
   all)
