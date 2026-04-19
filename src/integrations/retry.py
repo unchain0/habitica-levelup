@@ -7,7 +7,7 @@ from typing import TypeVar
 from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
 from loguru import logger
 
-from src.domain_models.resilience import RetryConfig
+from src.integrations.retry_policy import RetryConfig
 
 T = TypeVar("T")
 
