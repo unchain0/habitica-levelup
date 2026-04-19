@@ -2,7 +2,12 @@
 
 import asyncio
 
-from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
+from habiticalib.exceptions import (
+    BadRequestError,
+    HabiticaException,
+    NotAuthorizedError,
+    TooManyRequestsError,
+)
 from loguru import logger
 
 from src.domain_models.resilience import CircuitBreaker
@@ -57,7 +62,7 @@ class LevelUpService:
 
         try:
             await gateway.accept_pending_party_quest()
-        except NotAuthorizedError as error:
+        except (BadRequestError, NotAuthorizedError) as error:
             if self._is_recoverable_party_quest_acceptance_error(error):
                 logger.info("Party quest already active before acceptance")
                 return
@@ -65,7 +70,7 @@ class LevelUpService:
 
         logger.info(f"Accepted party quest: {status.party_quest.quest_key}")
 
-    def _is_recoverable_party_quest_acceptance_error(self, error: NotAuthorizedError) -> bool:
+    def _is_recoverable_party_quest_acceptance_error(self, error: HabiticaException) -> bool:
         message = str(error).lower()
         return any(
             recoverable_message in message

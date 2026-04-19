@@ -2,7 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from habiticalib.exceptions import NotAuthorizedError, TooManyRequestsError
+from habiticalib.exceptions import BadRequestError, NotAuthorizedError, TooManyRequestsError
 from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
 
@@ -168,11 +168,11 @@ class TestLevelUpService:
         mock_gateway = MagicMock()
         error_response = HabiticaErrorResponse(
             success=False,
-            error="Unauthorized",
+            error="BadRequest",
             message="You already accepted the quest invitation.",
         )
         mock_gateway.accept_pending_party_quest = AsyncMock(
-            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+            side_effect=BadRequestError(error=error_response, headers=CIMultiDict())
         )
 
         await service.accept_pending_party_quest(
@@ -184,6 +184,27 @@ class TestLevelUpService:
         )
 
         mock_gateway.accept_pending_party_quest.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_reraises_other_bad_request_errors(self, service):
+        mock_gateway = MagicMock()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="BadRequest",
+            message="Quest invitation payload invalid",
+        )
+        mock_gateway.accept_pending_party_quest = AsyncMock(
+            side_effect=BadRequestError(error=error_response, headers=CIMultiDict())
+        )
+
+        with pytest.raises(BadRequestError):
+            await service.accept_pending_party_quest(
+                mock_gateway,
+                UserStatus(
+                    level=1,
+                    party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+                ),
+            )
 
     @pytest.mark.asyncio
     async def test_accept_pending_party_quest_reraises_other_auth_errors(self, service):
