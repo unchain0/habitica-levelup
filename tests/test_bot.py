@@ -164,9 +164,7 @@ class TestLevelUpService:
         mock_gateway.accept_pending_party_quest.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_accept_pending_party_quest_ignores_already_accepted_error(
-        self, service
-    ):
+    async def test_accept_pending_party_quest_ignores_already_accepted_error(self, service):
         mock_gateway = MagicMock()
         error_response = HabiticaErrorResponse(
             success=False,

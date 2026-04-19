@@ -65,9 +65,7 @@ class LevelUpService:
 
         logger.info(f"Accepted party quest: {status.party_quest.quest_key}")
 
-    def _is_recoverable_party_quest_acceptance_error(
-        self, error: NotAuthorizedError
-    ) -> bool:
+    def _is_recoverable_party_quest_acceptance_error(self, error: NotAuthorizedError) -> bool:
         message = str(error).lower()
         return any(
             recoverable_message in message
