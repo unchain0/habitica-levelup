@@ -7,7 +7,6 @@ from yarl import URL
 
 from src.domain_models.farm_task import DEFAULT_FARM_TASK
 from src.domain_models.party_quest_status import PartyQuestStatus
-from src.domain_models.settings import Settings
 from src.domain_models.user_status import UserStatus
 from src.integrations.retry import with_retry
 
@@ -19,8 +18,13 @@ class HabiticaGateway:
         self._client = client
 
     @classmethod
-    def from_session(cls, session: ClientSession, settings: Settings) -> HabiticaGateway:
-        client = Habitica(session, api_user=settings.USER_ID, api_key=settings.API_TOKEN)
+    def from_session(
+        cls,
+        session: ClientSession,
+        user_id: str,
+        api_token: str,
+    ) -> HabiticaGateway:
+        client = Habitica(session, api_user=user_id, api_key=api_token)
         return cls(client)
 
     async def get_user_status(self) -> UserStatus:

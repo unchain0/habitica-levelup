@@ -8,8 +8,8 @@ from habiticalib.typedefs import HabiticaErrorResponse
 from multidict import CIMultiDict
 from yarl import URL
 
+from src.delivery.settings import Settings
 from src.domain_models.party_quest_status import PartyQuestStatus
-from src.domain_models.settings import Settings
 from src.domain_models.user_status import UserStatus
 from src.integrations.habitica_gateway import HabiticaGateway
 from src.integrations.retry import with_retry
@@ -198,7 +198,7 @@ class TestHabiticaGateway:
 
         with patch("src.integrations.habitica_gateway.Habitica") as mock_habitica:
             session = object()
-            gateway = HabiticaGateway.from_session(session, settings)
+            gateway = HabiticaGateway.from_session(session, settings.USER_ID, settings.API_TOKEN)
 
         mock_habitica.assert_called_once_with(session, api_user="test-user", api_key="test-token")
         assert isinstance(gateway, HabiticaGateway)

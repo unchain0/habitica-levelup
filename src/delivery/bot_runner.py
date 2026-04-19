@@ -9,7 +9,7 @@ from aiohttp import ClientSession
 from loguru import logger
 
 from src.delivery.logging import setup_logging
-from src.domain_models.settings import Settings
+from src.delivery.settings import Settings
 from src.integrations.habitica_gateway import HabiticaGateway
 from src.integrations.session import OptimizedClientSession
 from src.services.levelup_service import LevelUpService
@@ -25,7 +25,7 @@ class LevelUpBot:
         settings: Settings,
         service: LevelUpService | None = None,
         session_factory: Callable[[], Any] = OptimizedClientSession,
-        gateway_factory: Callable[[ClientSession, Settings], HabiticaGateway] = (
+        gateway_factory: Callable[[ClientSession, str, str], HabiticaGateway] = (
             HabiticaGateway.from_session
         ),
     ) -> None:
@@ -57,7 +57,11 @@ class LevelUpBot:
         self.setup_signal_handlers()
 
         async with self._session_factory() as session:
-            gateway = self._gateway_factory(session, self.settings)
+            gateway = self._gateway_factory(
+                session,
+                self.settings.USER_ID,
+                self.settings.API_TOKEN,
+            )
             while not self.service.shutdown_event.is_set():
                 await self.service.run(gateway)
 
