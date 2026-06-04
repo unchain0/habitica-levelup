@@ -3,6 +3,9 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from habiticalib.exceptions import NotAuthorizedError
+from habiticalib.typedefs import HabiticaErrorResponse
+from multidict import CIMultiDict
 
 from src.delivery.bot_runner import LevelUpBot
 from src.delivery.settings import Settings
@@ -96,6 +99,35 @@ class TestBotInfrastructureIntegration:
         await bot.run()
 
         service.run.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_bot_stops_on_auth_failure_without_restart(self, settings):
+        service = MagicMock()
+        service.shutdown_event = asyncio.Event()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="Authorization failed",
+        )
+        service.run = AsyncMock(
+            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+        )
+        bot = LevelUpBot(settings, service=service)
+
+        gateway = MagicMock()
+        mock_session_manager = MagicMock()
+        mock_session_manager.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session_manager.__aexit__ = AsyncMock(return_value=None)
+        bot._session_factory = MagicMock(return_value=mock_session_manager)
+        bot._gateway_factory = MagicMock(return_value=gateway)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            with pytest.raises(NotAuthorizedError):
+                await bot.run()
+
+        assert service.run.await_count == 1
+        mock_sleep.assert_not_awaited()
+        assert service.shutdown_event.is_set() is True
 
     @pytest.mark.asyncio
     async def test_setup_signal_handlers_windows(self, bot):

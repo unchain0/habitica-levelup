@@ -94,6 +94,7 @@ class TestWithRetry:
             success=False, error="Rate limited", message="Too many requests"
         )
         error = TooManyRequestsError(error=error_response, headers=CIMultiDict())
+        error.retry_after = None
         call_count = 0
 
         async def failing_coro():

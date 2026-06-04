@@ -62,7 +62,7 @@ class LevelUpService:
 
         try:
             await gateway.accept_pending_party_quest()
-        except (BadRequestError, NotAuthorizedError) as error:
+        except BadRequestError as error:
             if self._is_recoverable_party_quest_acceptance_error(error):
                 logger.info("Party quest already active before acceptance")
                 return
@@ -149,6 +149,11 @@ class LevelUpService:
         try:
             await self.initialize(gateway)
             logger.info(f"Current level: {self._current_level}")
+        except NotAuthorizedError:
+            logger.error(
+                "Failed to initialize service: Authorization failed - check API credentials"
+            )
+            raise
         except Exception as error:
             logger.error(f"Failed to initialize service: {error}")
             return

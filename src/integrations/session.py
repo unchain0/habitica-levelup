@@ -30,11 +30,6 @@ class OptimizedClientSession:
 
         # Habitica requires X-Client header: UserID-appname format
         user_id = self.user_id
-        if user_id is None:
-            # Lazy import to avoid circular dependency
-            from src.delivery.settings import Settings
-
-            user_id = Settings().USER_ID
         client_header = f"{user_id}-habitica-levelup" if user_id else "habitica-levelup"
 
         self._session = ClientSession(

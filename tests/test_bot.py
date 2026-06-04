@@ -146,11 +146,11 @@ class TestLevelUpService:
         mock_gateway = MagicMock()
         error_response = HabiticaErrorResponse(
             success=False,
-            error="Unauthorized",
+            error="BadRequest",
             message="The quest has already started, but you can always catch the next one!",
         )
         mock_gateway.accept_pending_party_quest = AsyncMock(
-            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+            side_effect=BadRequestError(error=error_response, headers=CIMultiDict())
         )
 
         await service.accept_pending_party_quest(
@@ -162,6 +162,29 @@ class TestLevelUpService:
         )
 
         mock_gateway.accept_pending_party_quest.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_accept_pending_party_quest_reraises_auth_error_even_with_recoverable_message(
+        self, service
+    ):
+        mock_gateway = MagicMock()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="The quest has already started, but you can always catch the next one!",
+        )
+        mock_gateway.accept_pending_party_quest = AsyncMock(
+            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict())
+        )
+
+        with pytest.raises(NotAuthorizedError):
+            await service.accept_pending_party_quest(
+                mock_gateway,
+                UserStatus(
+                    level=1,
+                    party_quest=PartyQuestStatus(quest_key="owl", requires_acceptance=True),
+                ),
+            )
 
     @pytest.mark.asyncio
     async def test_accept_pending_party_quest_ignores_already_accepted_error(self, service):
@@ -434,6 +457,23 @@ class TestLevelUpServiceRun:
 
         with patch.object(service, "initialize", side_effect=Exception("API Error")):
             await service.run(mock_gateway)
+
+    @pytest.mark.asyncio
+    async def test_run_initialize_fails_with_auth_error(self, service):
+        mock_gateway = MagicMock()
+        error_response = HabiticaErrorResponse(
+            success=False,
+            error="Unauthorized",
+            message="Authorization failed",
+        )
+
+        with patch.object(
+            service,
+            "initialize",
+            side_effect=NotAuthorizedError(error=error_response, headers=CIMultiDict()),
+        ):
+            with pytest.raises(NotAuthorizedError):
+                await service.run(mock_gateway)
 
     @pytest.mark.asyncio
     async def test_run_completes_all_levels(self, service):

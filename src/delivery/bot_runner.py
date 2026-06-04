@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aiohttp import ClientSession
+from habiticalib.exceptions import NotAuthorizedError
 from loguru import logger
 
 from src.delivery.logging import setup_logging
@@ -63,7 +64,11 @@ class LevelUpBot:
                 self.settings.API_TOKEN,
             )
             while not self.service.shutdown_event.is_set():
-                await self.service.run(gateway)
+                try:
+                    await self.service.run(gateway)
+                except NotAuthorizedError:
+                    self.service.shutdown_event.set()
+                    raise
 
                 if self.service.shutdown_event.is_set():
                     break
