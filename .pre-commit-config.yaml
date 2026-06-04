@@ -15,6 +15,13 @@ repos:
         language: system
         stages: [pre-commit]
         types: [python]
+      - id: radon-complexity
+        name: radon-complexity
+        entry: uv run radon cc src/ -a -nc
+        language: system
+        stages: [pre-commit]
+        types: [python]
+        pass_filenames: false
       - id: github-ci-parity
         name: github-ci-parity
         entry: bash scripts/run-ci-checks.sh pre-push

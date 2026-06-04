@@ -32,6 +32,7 @@ test-cov = "pytest tests/ --cov=src --cov-report=term-missing --cov-report=html 
 lint = "ruff check ."
 format = "ruff format ."
 type-check = "mypy src/"
+complexity = "radon cc src/ -a -nc"
 run = "python main.py"
 install-hooks = "pre-commit install"
 pre-commit = "pre-commit run --all-files"

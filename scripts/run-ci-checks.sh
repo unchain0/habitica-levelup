@@ -38,6 +38,10 @@ run_tests() {
   uv run task test-cov
 }
 
+run_complexity() {
+  uv run task complexity
+}
+
 run_security() {
   uv run bandit -r src/ -f json -o bandit-report.json
 }
@@ -71,6 +75,7 @@ case "$target" in
     fail_if_auto_fix_changed_worktree "$before_state"
     run_lint
     run_type_check
+    run_complexity
     run_tests
     run_security
     run_integration
@@ -78,6 +83,7 @@ case "$target" in
   all)
     run_lint
     run_type_check
+    run_complexity
     run_tests
     run_security
     run_integration

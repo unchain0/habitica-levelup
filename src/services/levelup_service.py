@@ -77,29 +77,37 @@ class LevelUpService:
             for recoverable_message in self.QUEST_ALREADY_ACTIVE_MESSAGES
         )
 
+    def _is_stat_points_error(self, error: NotAuthorizedError) -> bool:
+        return "stat points" in str(error).lower()
+
+    def _should_allocate_points(self, user_status: UserStatus) -> bool:
+        if user_status.level is None:
+            logger.warning("Could not fetch user stats, skipping stat allocation")
+            return False
+        if not has_available_stat_points(user_status):
+            logger.debug("No stat points available to allocate")
+            return False
+        return True
+
+    async def _try_allocate_points(self, gateway: HabiticaGateway) -> None:
+        try:
+            await gateway.allocate_strength_point()
+        except NotAuthorizedError as error:
+            if self._is_stat_points_error(error):
+                logger.debug("No stat points available to allocate")
+                return
+            raise
+        logger.debug("Allocated point to strength")
+
     async def allocate_points(
         self,
         gateway: HabiticaGateway,
         user_status: UserStatus | None = None,
     ) -> None:
         user_status = user_status or await gateway.get_user_status()
-        if user_status.level is None:
-            logger.warning("Could not fetch user stats, skipping stat allocation")
+        if not self._should_allocate_points(user_status):
             return
-
-        if not has_available_stat_points(user_status):
-            logger.debug("No stat points available to allocate")
-            return
-
-        try:
-            await gateway.allocate_strength_point()
-        except NotAuthorizedError as error:
-            if "stat points" in str(error).lower():
-                logger.debug("No stat points available to allocate")
-                return
-            raise
-
-        logger.debug("Allocated point to strength")
+        await self._try_allocate_points(gateway)
 
     async def buy_armoire_if_wealthy(
         self,
@@ -145,6 +153,32 @@ class LevelUpService:
         self._farm_task_id = await gateway.get_or_create_farm_task()
         await self.accept_pending_party_quest(gateway)
 
+    async def _handle_iteration_result(self, success: bool, gateway: HabiticaGateway) -> None:
+        if success:
+            self._current_level = await self.get_current_level(gateway)
+            if should_log_progress(self._current_level, self.PROGRESS_INTERVAL):
+                logger.info(f"Progress: Level {self._current_level}/{self.MAX_LEVEL}")
+            await asyncio.sleep(self.RATE_LIMIT_DELAY)
+        else:
+            await asyncio.sleep(0.5)
+
+    def _log_final_status(self) -> None:
+        if self.shutdown_event.is_set():
+            logger.info(f"Stopped at level {self._current_level}")
+        elif is_max_level(self._current_level, self.MAX_LEVEL):
+            logger.success(f"Reached level {self.MAX_LEVEL}!")
+        else:
+            logger.warning(f"Stopped at level {self._current_level}")
+
+    async def _leveling_loop(self, gateway: HabiticaGateway) -> None:
+        while should_continue_leveling(
+            self._current_level,
+            self.MAX_LEVEL,
+            self.shutdown_event.is_set(),
+        ):
+            success = await self.run_iteration(gateway)
+            await self._handle_iteration_result(success, gateway)
+
     async def run(self, gateway: HabiticaGateway) -> None:
         try:
             await self.initialize(gateway)
@@ -165,27 +199,9 @@ class LevelUpService:
         logger.info(f"Leveling from {self._current_level} to {self.MAX_LEVEL}")
 
         try:
-            while should_continue_leveling(
-                self._current_level,
-                self.MAX_LEVEL,
-                self.shutdown_event.is_set(),
-            ):
-                success = await self.run_iteration(gateway)
-
-                if success:
-                    self._current_level = await self.get_current_level(gateway)
-                    if should_log_progress(self._current_level, self.PROGRESS_INTERVAL):
-                        logger.info(f"Progress: Level {self._current_level}/{self.MAX_LEVEL}")
-                    await asyncio.sleep(self.RATE_LIMIT_DELAY)
-                else:
-                    await asyncio.sleep(0.5)
+            await self._leveling_loop(gateway)
         except asyncio.CancelledError:
             logger.info("Operation cancelled")
             raise
         finally:
-            if self.shutdown_event.is_set():
-                logger.info(f"Stopped at level {self._current_level}")
-            elif is_max_level(self._current_level, self.MAX_LEVEL):
-                logger.success(f"Reached level {self.MAX_LEVEL}!")
-            else:
-                logger.warning(f"Stopped at level {self._current_level}")
+            self._log_final_status()

@@ -1,5 +1,7 @@
 """Habitica integration boundary."""
 
+from typing import Any
+
 from aiohttp import ClientSession
 from habiticalib import Attributes, Direction, Habitica, Task, TaskPriority, TaskType
 from habiticalib.typedefs import TaskData
@@ -27,39 +29,52 @@ class HabiticaGateway:
         client = Habitica(session, api_user=user_id, api_key=api_token)
         return cls(client)
 
-    async def get_user_status(self) -> UserStatus:
-        user = await with_retry(lambda: self._client.get_user())
-        if user is None or user.data is None or user.data.stats is None:
-            return UserStatus(level=None, available_points=0)
+    def _extract_member_response(self, members: dict, user_id: object) -> object:
+        if user_id is None:
+            return None
+        response = members.get(user_id)
+        if response is None:
+            response = members.get(str(user_id))
+        return response
 
-        quest = getattr(getattr(user.data, "party", None), "quest", None)
+    def _build_quest_status(self, quest: object, user_id: object) -> PartyQuestStatus:
         members = getattr(quest, "members", {}) or {}
-        user_id = getattr(user.data, "id", None)
-
-        member_response = None
-        if user_id is not None:
-            member_response = members.get(user_id)
-            if member_response is None:
-                member_response = members.get(str(user_id))
-
+        member_response = self._extract_member_response(members, user_id)
         quest_key = getattr(quest, "key", None)
         quest_is_active = bool(getattr(quest, "active", False))
-        quest_requires_acceptance = (
+        requires_acceptance = (
             bool(quest_key)
             and not quest_is_active
             and (bool(getattr(quest, "RSVPNeeded", False)) or member_response in (None, False))
         )
-
-        return UserStatus(
-            level=user.data.stats.lvl,
-            available_points=getattr(user.data.stats, "points", 0) or 0,
-            gold=float(getattr(user.data.stats, "gp", 0.0) or 0.0),
-            party_quest=PartyQuestStatus(
-                quest_key=quest_key,
-                is_active=quest_is_active,
-                requires_acceptance=quest_requires_acceptance,
-            ),
+        return PartyQuestStatus(
+            quest_key=quest_key,
+            is_active=quest_is_active,
+            requires_acceptance=requires_acceptance,
         )
+
+    def _is_user_data_valid(self, user: Any) -> bool:
+        return user is not None and user.data is not None and user.data.stats is not None
+
+    def _extract_quest(self, user_data: Any) -> Any:
+        return getattr(getattr(user_data, "party", None), "quest", None)
+
+    def _build_user_status(self, user_data: Any) -> UserStatus:
+        quest = self._extract_quest(user_data)
+        user_id = getattr(user_data, "id", None)
+        quest_status = self._build_quest_status(quest, user_id) if quest else PartyQuestStatus()
+        return UserStatus(
+            level=user_data.stats.lvl,
+            available_points=getattr(user_data.stats, "points", 0) or 0,
+            gold=float(getattr(user_data.stats, "gp", 0.0) or 0.0),
+            party_quest=quest_status,
+        )
+
+    async def get_user_status(self) -> UserStatus:
+        user = await with_retry(lambda: self._client.get_user())
+        if not self._is_user_data_valid(user):
+            return UserStatus(level=None, available_points=0)
+        return self._build_user_status(user.data)
 
     async def score_task_up(self, task_id: str) -> None:
         await with_retry(lambda: self._client.update_score(task_id, Direction.UP))
