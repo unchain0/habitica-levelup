@@ -2,7 +2,8 @@
 
 **Stack:** Python 3.14 (futuristic), uv, pydantic, loguru  
 **Architecture:** MASA (5-layer unidirectional)  
-**Generated:** 2026-04-19
+**Quality:** 100% coverage, radon grade A, strict mypy  
+**Generated:** 2026-06-04
 
 ## OVERVIEW
 
@@ -53,6 +54,7 @@ uv run task test-cov         # pytest --cov=src (100% required)
 uv run task lint             # ruff check .
 uv run task format           # ruff format .
 uv run task type-check       # mypy src/
+uv run task complexity       # radon cc src/ -a -nc (grade A required)
 
 # Full CI locally
 bash scripts/run-ci-checks.sh all
@@ -85,6 +87,8 @@ docker-compose --profile dev up -d  # Dev with live reload
 | E501 line length | pyproject.toml:84 | Ignored - handled by formatter |
 | Skip type checking | — | mypy strict mode enabled |
 | <100% coverage | pyproject.toml:65 | CI fails if coverage < 100% |
+| Cyclomatic complexity > A | pre-commit hook | radon cc src/ -a -nc blocks push |
+| Import delivery from integrations | session.py | Violates MASA unidirectional rule |
 
 ## UNIQUE STYLES
 
@@ -94,6 +98,8 @@ docker-compose --profile dev up -d  # Dev with live reload
 - **tests/contracts/** - API contract tests (non-standard naming)
 - **Circuit breaker** - Custom resilience pattern in services/
 - **Rate limiting** - Built-in delays (0.5s) between iterations
+- **Radon grade A** - Cyclomatic complexity strictly enforced at pre-commit
+- **Auth fatal** - NotAuthorizedError stops bot immediately, no restart loop
 
 ## NOTES
 

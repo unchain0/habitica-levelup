@@ -28,7 +28,7 @@ src/
 │   └── resilience.py       # Circuit breaker pattern
 └── delivery/               # Entry points
     ├── cli.py              # main() function
-    ├── bot_runner.py       # Signal handlers
+    ├── bot_runner.py       # Signal handlers, restart loop
     ├── settings.py         # Pydantic configuration
     └── logging.py          # Loguru setup
 ```
@@ -63,3 +63,5 @@ src/
 | Domain models in integrations | integrations/ | Use models from domain_models/ |
 | Upward imports | Any | Import only from lower layers |
 | Mutable domain models | domain_models/ | Must use frozen=True |
+| Import delivery from integrations | session.py | Pass user_id as constructor param |
+| Auth errors as recoverable | services/levelup_service.py | NotAuthorizedError is always fatal |
