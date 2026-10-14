@@ -15,3 +15,7 @@ wheels/
 coverage.xml
 bandit-report.json
 htmlcov/
+
+# Verification skill evidence (proof artifacts survive cleanup; keep out of git)
+.cursor/skills/verify-habitica-levelup/evidence/*
+!.cursor/skills/verify-habitica-levelup/evidence/.gitkeep
