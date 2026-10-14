@@ -60,9 +60,10 @@ case "$FEATURE_ID" in
     pytest_args=(
       tests/test_infrastructure.py
       tests/test_core.py
+      tests/test_bot.py
       tests/integration/test_bot_integration.py
       -k
-      "auth or NotAuthorized or circuit or retry or rate_limit or Rate or unauthorized or Unauthorized or restart or TooMany"
+      "auth or NotAuthorized or circuit or retry or rate_limit or Rate or unauthorized or Unauthorized or restart or TooMany or timeout or Timeout"
     )
     ;;
   graceful-shutdown)

@@ -120,7 +120,7 @@ Feature ids and pytest targets (paths confirmed in `tests/`):
 | `config-validation` | `tests/test_config.py` `tests/test_main.py` `tests/test_logging_config.py` |
 | `farm-loop` | `tests/test_engines.py` `tests/test_tasks.py` `tests/test_bot.py::TestLevelUpService` `tests/test_bot.py::TestLevelUpServiceRun` |
 | `account-maintenance` | `tests/test_bot.py` `-k` allocate or armoire or party_quest or maintain |
-| `auth-and-resilience` | `tests/test_infrastructure.py` `tests/test_core.py` `tests/integration/test_bot_integration.py` `-k` auth or NotAuthorized or circuit or retry |
+| `auth-and-resilience` | `tests/test_infrastructure.py` `tests/test_core.py` `tests/test_bot.py` `tests/integration/test_bot_integration.py` `-k` auth / NotAuthorized / circuit / retry / timeout / rate |
 | `graceful-shutdown` | `tests/integration/test_bot_integration.py` `-k` signal or shutdown `tests/test_engines.py` `-k` continue_leveling |
 
 Or one-shot helpers:

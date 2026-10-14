@@ -36,6 +36,9 @@ Preconditions:
 
 - **Drive suite.** Run
   `.cursor/skills/verify-habitica-levelup/scripts/drive.sh "$SCRATCH" auth-and-resilience`.
+  Selection includes `tests/test_infrastructure.py`, `tests/test_core.py`,
+  `tests/test_bot.py`, and `tests/integration/test_bot_integration.py` filtered
+  for auth, circuit, retry, timeout, and rate-limit names.
 - **Retry auth.** `tests/test_infrastructure.py::TestWithRetry::test_no_retry_on_not_authorized`
   raises without sleeping through retries.
 - **Retry rate limit.** `test_retry_on_too_many_requests` succeeds after mocked
@@ -45,9 +48,9 @@ Preconditions:
 - **Bot auth stop.**
   `tests/integration/test_bot_integration.py::TestBotInfrastructureIntegration::test_bot_stops_on_auth_failure_without_restart`
   asserts one `service.run`, no restart sleep, and `shutdown_event` set.
-- **Service init auth.** `TestLevelUpServiceRun::test_run_initialize_fails_with_auth_error`.
-- **Iteration faults.** timeout and rate-limit tests on `run_iteration` record
-  circuit failures.
+- **Service init auth.** `tests/test_bot.py::TestLevelUpServiceRun::test_run_initialize_fails_with_auth_error`.
+- **Iteration faults.** `tests/test_bot.py` timeout and rate-limit tests on
+  `run_iteration` record circuit failures.
 - **Unexpected end restart.** integration test retries after unexpected service
   return uses `RESTART_DELAY` 30.0 only when the error is not auth.
 - **Proof.** Evidence transcript exit 0 and `PROOF.md`. `STATIC_NOTE.md` states
