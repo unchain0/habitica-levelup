@@ -498,7 +498,8 @@ class TestLevelUpServiceRun:
             mock_initialize.side_effect = seed_initialize
             with patch.object(service, "run_iteration", mock_run_iteration):
                 with patch.object(service, "get_current_level", side_effect=refresh_level):
-                    await service.run(mock_gateway)
+                    with patch("asyncio.sleep", new_callable=AsyncMock):
+                        await service.run(mock_gateway)
 
         assert service.current_level >= 1
 
@@ -516,7 +517,8 @@ class TestLevelUpServiceRun:
                 with patch.object(
                     service, "get_current_level", new_callable=AsyncMock, return_value=3
                 ):
-                    await service.run(mock_gateway)
+                    with patch("asyncio.sleep", new_callable=AsyncMock):
+                        await service.run(mock_gateway)
 
         assert service.current_level == 3
 
@@ -545,7 +547,8 @@ class TestLevelUpServiceRun:
             with patch.object(service, "run_iteration", mock_run_iteration):
                 with patch("src.services.levelup_service.logger") as mock_logger:
                     with patch.object(service, "get_current_level", side_effect=refresh_level):
-                        await service.run(mock_gateway)
+                        with patch("asyncio.sleep", new_callable=AsyncMock):
+                            await service.run(mock_gateway)
 
         progress_calls = [
             call for call in mock_logger.info.call_args_list if "Progress" in str(call)
@@ -599,7 +602,8 @@ class TestLevelUpServiceRun:
                 with patch.object(
                     service, "get_current_level", new_callable=AsyncMock, return_value=4
                 ):
-                    await service.run(mock_gateway)
+                    with patch("asyncio.sleep", new_callable=AsyncMock):
+                        await service.run(mock_gateway)
 
         assert service.current_level == 4
 
